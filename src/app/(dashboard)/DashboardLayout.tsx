@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, FileText, Package, Settings, LogOut, Menu, Bell, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, FileText, Package, Settings, LogOut, Menu, Bell, CheckSquare, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Invoices', href: '/invoices', icon: FileText },
+    { name: 'Clients', href: '/clients', icon: Users },
     { name: 'Items', href: '/products', icon: Package },
     { name: 'Business Settings', href: '/settings', icon: Settings },
   ];

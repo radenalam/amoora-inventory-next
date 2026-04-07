@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
+import { Upload, X, Loader2 } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { settings, fetchSettings, updateSettings } = useStore();
+  const { settings, fetchSettings, updateSettings, uploadFile } = useStore();
   const [formData, setFormData] = useState(settings);
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -59,8 +60,43 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-gray-700">Catatan Default (Instruksi Pembayaran)</label>
               <textarea rows={4} value={formData.defaultNotes} onChange={(e) => setFormData({ ...formData, defaultNotes: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
             </div>
-            <div className="sm:col-span-2 bg-blue-50 p-4 rounded-md">
-              <p className="text-sm text-blue-700">Fitur upload logo dan tanda tangan akan tersedia pada fase berikutnya. Saat ini menggunakan teks sebagai fallback.</p>
+            <div className="sm:col-span-2 grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Logo Bisnis</label>
+                {formData.logoUrl ? (
+                  <div className="mt-1 flex items-center space-x-2">
+                    <img src={formData.logoUrl} alt="Logo" className="h-16 w-auto border rounded" />
+                    <button type="button" onClick={() => setFormData({ ...formData, logoUrl: '' })} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <label className="mt-1 flex items-center justify-center w-full h-20 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                    <Upload className="w-5 h-5 text-gray-400 mr-2" />
+                    <span className="text-sm text-gray-500">Upload Logo</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) { try { const url = await uploadFile(file, 'logo'); setFormData(prev => ({ ...prev, logoUrl: url })); } catch { alert('Gagal upload logo'); } }
+                    }} />
+                  </label>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tanda Tangan</label>
+                {formData.signatureUrl ? (
+                  <div className="mt-1 flex items-center space-x-2">
+                    <img src={formData.signatureUrl} alt="Signature" className="h-16 w-auto border rounded" />
+                    <button type="button" onClick={() => setFormData({ ...formData, signatureUrl: '' })} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <label className="mt-1 flex items-center justify-center w-full h-20 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 transition-colors">
+                    <Upload className="w-5 h-5 text-gray-400 mr-2" />
+                    <span className="text-sm text-gray-500">Upload Tanda Tangan</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) { try { const url = await uploadFile(file, 'signature'); setFormData(prev => ({ ...prev, signatureUrl: url })); } catch { alert('Gagal upload tanda tangan'); } }
+                    }} />
+                  </label>
+                )}
+              </div>
             </div>
           </div>
           <div className="pt-5 flex items-center justify-end">

@@ -9,18 +9,12 @@ import { formatCurrency } from '@/lib/utils';
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
   const router = useRouter();
-  const { invoices, products, settings, addInvoice, updateInvoice, fetchInvoice } = useStore();
+  const { invoices, products, settings, clients, addInvoice, updateInvoice, fetchInvoice, fetchNextInvoiceNo } = useStore();
 
   const isEdit = Boolean(id);
 
-  const generateInvoiceNo = () => {
-    const year = new Date().getFullYear();
-    const count = invoices.length + 1;
-    return `INV${count.toString().padStart(2, '0')}/${year}`;
-  };
-
   const [formData, setFormData] = useState<Partial<Invoice>>({
-    invoiceNo: generateInvoiceNo(),
+    invoiceNo: '',
     date: new Date().toISOString().split('T')[0],
     dueDate: '',
     poNumber: '',
@@ -41,6 +35,23 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
   });
 
   const [loading, setLoading] = useState(false);
+
+  const generateInvoiceNo = async () => {
+    try {
+      return await fetchNextInvoiceNo();
+    } catch {
+      const year = new Date().getFullYear();
+      return `INV01/${year}`;
+    }
+  };
+
+  useEffect(() => {
+    if (!isEdit) {
+      generateInvoiceNo().then((no) => {
+        setFormData(prev => ({ ...prev, invoiceNo: no, payableTo: settings.name, notes: settings.defaultNotes }));
+      });
+    }
+  }, [isEdit, id]);
 
   useEffect(() => {
     if (isEdit && id) {
@@ -149,6 +160,24 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
             <div className="grid grid-cols-4 divide-x divide-gray-300">
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Invoice for</div>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const client = clients.find((c: any) => c.id === e.target.value);
+                    if (client) {
+                      setFormData(prev => ({
+                        ...prev,
+                        invoiceFor: client.name,
+                        customerAddress: client.address || '',
+                        customerPhone: client.phone || '',
+                      }));
+                    }
+                  }}
+                  className="w-full text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-500 focus:outline-none focus:border-blue-500 mb-1"
+                >
+                  <option value="">- Pilih Client -</option>
+                  {clients.map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
                 <input type="text" value={formData.invoiceFor} onChange={(e) => setFormData({ ...formData, invoiceFor: e.target.value })} className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" placeholder="Nama Customer" required />
               </div>
               <div className="p-2">

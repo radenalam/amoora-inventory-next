@@ -147,10 +147,10 @@ export default function DashboardPage() {
               <Package className="w-5 h-5 text-gray-400" />
               <span>Add Item</span>
             </Link>
-            <button className="w-full flex items-center space-x-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 px-4 rounded-lg transition-colors font-medium">
+            <Link href="/clients" className="w-full flex items-center space-x-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 px-4 rounded-lg transition-colors font-medium">
               <Users className="w-5 h-5 text-gray-400" />
               <span>Manage Clients</span>
-            </button>
+            </Link>
             <Link href="/settings" className="w-full flex items-center space-x-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 px-4 rounded-lg transition-colors font-medium">
               <Settings className="w-5 h-5 text-gray-400" />
               <span>Business Settings</span>

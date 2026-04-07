@@ -61,6 +61,17 @@ export interface BusinessSettings {
   defaultNotes: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  notes: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('amoora_token');
@@ -100,6 +111,14 @@ interface AppState {
 
   fetchSettings: () => Promise<void>;
   updateSettings: (settings: Partial<BusinessSettings>) => Promise<void>;
+
+  clients: Client[];
+  fetchClients: () => Promise<void>;
+  addClient: (client: any) => Promise<void>;
+  updateClient: (id: string, client: any) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
+  fetchNextInvoiceNo: () => Promise<string>;
+  uploadFile: (file: File, type: 'logo' | 'signature') => Promise<string>;
 }
 
 export const useStore = create<AppState>()((set, get) => ({
@@ -295,5 +314,52 @@ export const useStore = create<AppState>()((set, get) => ({
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     set({ settings: data });
+  },
+
+  clients: [],
+
+  fetchClients: async () => {
+    try {
+      const res = await fetch('/api/clients', { headers: headers() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      set({ clients: data });
+    } catch (err) { console.error('Fetch clients error:', err); }
+  },
+
+  addClient: async (client) => {
+    const res = await fetch('/api/clients', { method: 'POST', headers: headers(), body: JSON.stringify(client) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    set((s) => ({ clients: [data, ...s.clients] }));
+  },
+
+  updateClient: async (id, client) => {
+    const res = await fetch(`/api/clients/${id}`, { method: 'PUT', headers: headers(), body: JSON.stringify(client) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    set((s) => ({ clients: s.clients.map((c) => (c.id === id ? data : c)) }));
+  },
+
+  deleteClient: async (id) => {
+    const res = await fetch(`/api/clients/${id}`, { method: 'DELETE', headers: headers() });
+    if (!res.ok) throw new Error('Gagal menghapus client');
+    set((s) => ({ clients: s.clients.filter((c) => c.id !== id) }));
+  },
+
+  fetchNextInvoiceNo: async () => {
+    const res = await fetch('/api/next-invoice-number', { headers: headers() });
+    const data = await res.json();
+    return data.invoiceNo;
+  },
+
+  uploadFile: async (file, type) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    const res = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    return data.url;
   },
 }));

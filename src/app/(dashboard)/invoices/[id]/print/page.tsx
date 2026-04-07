@@ -40,7 +40,9 @@ export default function InvoicePrintPage() {
     );
   }
 
-  const handlePrint = () => { window.print(); };
+  const handlePrint = () => {
+    window.open(`/api/invoices/${id}/pdf`, '_blank');
+  };
 
   const totalQty = invoice.items.reduce((sum, item) => sum + item.qty, 0);
   const discountAmount = invoice.discountType === 'percent' ? invoice.subtotal * (invoice.discountValue / 100) : invoice.discountValue;

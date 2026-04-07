@@ -55,6 +55,19 @@ export const invoiceItems = pgTable('invoice_items', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const clients = pgTable('clients', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull(),
+  email: text('email').default(''),
+  phone: text('phone').default(''),
+  address: text('address').default(''),
+  notes: text('notes').default(''),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type Client = typeof clients.$inferSelect;
+
 export const settings = pgTable('settings', {
   id: text('id').primaryKey().default('default'),
   name: text('name').default('Amoora Couture').notNull(),
