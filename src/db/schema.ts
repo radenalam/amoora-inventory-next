@@ -89,3 +89,16 @@ export type NewInvoice = typeof invoices.$inferInsert;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type NewInvoiceItem = typeof invoiceItems.$inferInsert;
 export type Settings = typeof settings.$inferSelect;
+
+export const emailLogs = pgTable('email_logs', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  invoiceId: text('invoice_id').notNull().references(() => invoices.id, { onDelete: 'cascade' }),
+  recipientEmail: text('recipient_email').notNull(),
+  subject: text('subject').notNull(),
+  status: text('status').default('pending').notNull(),
+  errorMessage: text('error_message').default(''),
+  sentAt: timestamp('sent_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type EmailLog = typeof emailLogs.$inferSelect;
