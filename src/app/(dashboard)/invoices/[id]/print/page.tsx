@@ -3,21 +3,11 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useStore, Invoice } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Printer, ArrowLeft, Edit2, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Printer, ArrowLeft, Edit2, Loader2, Download } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('amoora_token');
-}
-
-function headers(): Record<string, string> {
-  const h: Record<string, string> = {};
-  const t = getToken();
-  if (t) h['Authorization'] = `Bearer ${t}`;
-  return h;
-}
+import { pdf } from '@react-pdf/renderer';
+import InvoicePDFDocument from '@/components/InvoicePDF';
 
 export default function InvoicePrintPage() {
   const params = useParams();
@@ -27,6 +17,7 @@ export default function InvoicePrintPage() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -34,6 +25,48 @@ export default function InvoicePrintPage() {
       fetchInvoice(id).then((inv) => { setInvoice(inv); setLoading(false); });
     }
   }, [id]);
+
+  const handleDownloadPDF = useCallback(async () => {
+    if (!invoice) return;
+    setGenerating(true);
+    try {
+      const blob = await pdf(
+        <InvoicePDFDocument invoice={invoice} settings={settings} />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${invoice.invoiceNo}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Gagal generate PDF');
+    }
+    setGenerating(false);
+  }, [invoice, settings]);
+
+  const handlePrint = useCallback(async () => {
+    if (!invoice) return;
+    setGenerating(true);
+    try {
+      const blob = await pdf(
+        <InvoicePDFDocument invoice={invoice} settings={settings} />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) {
+        win.onload = () => {
+          win.print();
+          URL.revokeObjectURL(url);
+        };
+      }
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Gagal generate PDF');
+    }
+    setGenerating(false);
+  }, [invoice, settings]);
 
   if (loading) {
     return (
@@ -47,26 +80,12 @@ export default function InvoicePrintPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900">Invoice tidak ditemukan</h2>
-        <button onClick={() => router.push('/invoices')} className="mt-4 text-blue-600 hover:underline">Kembali ke daftar</button>
+        <button onClick={() => router.push('/invoices')} className="mt-4 text-blue-600 hover:underline">
+          Kembali ke daftar
+        </button>
       </div>
     );
   }
-
-  const [loadingPdf, setLoadingPdf] = useState(false);
-
-  const handlePrint = async () => {
-    setLoadingPdf(true);
-    try {
-      const res = await fetch(`/api/invoices/${id}/pdf`, { headers: headers() });
-      const html = await res.text();
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-      }
-    } catch { alert('Gagal generate PDF'); }
-    setLoadingPdf(false);
-  };
 
   const totalQty = invoice.items.reduce((sum, item) => sum + item.qty, 0);
   const discountAmount = invoice.discountType === 'percent' ? invoice.subtotal * (invoice.discountValue / 100) : invoice.discountValue;
@@ -83,12 +102,18 @@ export default function InvoicePrintPage() {
           <Link href={`/invoices/${invoice.id}/edit`} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             <Edit2 className="w-4 h-4 mr-2" />Edit
           </Link>
-          <button onClick={handlePrint} disabled={loadingPdf} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
-            {loadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}Print / PDF
+          <button onClick={handleDownloadPDF} disabled={generating} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            Download PDF
+          </button>
+          <button onClick={handlePrint} disabled={generating} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+            Print
           </button>
         </div>
       </div>
 
+      {/* Web Preview (unchanged) */}
       <div className="bg-white shadow-lg print:shadow-none print:border-0 border border-gray-200 rounded-lg overflow-hidden">
         <div className="p-8 sm:p-12">
           <div className="flex justify-between items-start border-b border-gray-200 pb-8">
