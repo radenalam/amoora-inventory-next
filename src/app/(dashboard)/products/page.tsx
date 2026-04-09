@@ -148,11 +148,10 @@ export default function ProductsPage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={handleCloseModal}></div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 bg-black/50" onClick={handleCloseModal} />
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="relative bg-white rounded-xl text-left overflow-hidden shadow-xl w-full max-w-lg z-10" onClick={(e) => e.stopPropagation()}>
               <div className="bg-white px-6 pt-6 pb-4 sm:p-6 sm:pb-4">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">{editingProduct ? 'Edit Produk' : 'Tambah Produk'}</h3>
