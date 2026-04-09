@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useStore, Invoice, InvoiceItem, InvoiceStatus } from '@/store/useStore';
 import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import ClientSearchInput from '@/components/ClientSearchInput';
 
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
@@ -160,25 +161,18 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
             <div className="grid grid-cols-4 divide-x divide-gray-300">
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Invoice for</div>
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const client = clients.find((c: any) => c.id === e.target.value);
-                    if (client) {
-                      setFormData(prev => ({
-                        ...prev,
-                        invoiceFor: client.name,
-                        customerAddress: client.address || '',
-                        customerPhone: client.phone || '',
-                      }));
-                    }
-                  }}
-                  className="w-full text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-500 focus:outline-none focus:border-blue-500 mb-1"
-                >
-                  <option value="">- Pilih Client -</option>
-                  {clients.map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                </select>
-                <input type="text" value={formData.invoiceFor} onChange={(e) => setFormData({ ...formData, invoiceFor: e.target.value })} className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" placeholder="Nama Customer" required />
+                <ClientSearchInput
+                  clients={clients.map((c: any) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, address: c.address }))}
+                  value={formData.invoiceFor}
+                  onChange={(val) => setFormData(prev => ({ ...prev, invoiceFor: val }))}
+                  onSelect={(client) => setFormData(prev => ({
+                    ...prev,
+                    invoiceFor: client.name,
+                    customerAddress: client.address || '',
+                    customerPhone: client.phone || '',
+                  }))}
+                placeholder="Ketik atau cari nama client..."
+                />
               </div>
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Payable to</div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and, or, like, desc, inArray, count as countFn } from 'drizzle-orm';
 import { db } from '@/db';
-import { invoices, invoiceItems } from '@/db/schema';
+import { invoices, invoiceItems, clients } from '@/db/schema';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -105,6 +105,19 @@ export async function POST(request: NextRequest) {
   }
 
   const createdItems = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoice.id));
+
+  // Auto-create client in master if not exists
+  if (rest.invoiceFor) {
+    const existingClient = await db.select().from(clients).where(eq(clients.name, rest.invoiceFor)).limit(1);
+    if (existingClient.length === 0) {
+      await db.insert(clients).values({
+        name: rest.invoiceFor,
+        email: rest.customerEmail || '',
+        phone: rest.customerPhone || '',
+        address: rest.customerAddress || '',
+      });
+    }
+  }
 
   return NextResponse.json({ ...invoice, items: createdItems }, { status: 201 });
 }
