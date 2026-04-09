@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { invoices, invoiceItems, settings, emailLogs } from '@/db/schema';
+import { invoices, invoiceItems, settings, emailLogs, clients } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { getTokenFromHeaders } from '@/lib/utils';
-import jwt from 'jsonwebtoken';
 import { sendEmail } from '@/lib/email';
 import { generateInvoiceEmailHtml } from '@/lib/email-template';
+import { getTokenFromHeaders } from '@/lib/utils';
 
 export async function POST(
   request: NextRequest,
@@ -19,28 +18,19 @@ export async function POST(
 
     const { id } = await params;
 
-    const invoice = await db.query.invoices.findFirst({
-      where: eq(invoices.id, id),
-      with: { items: true },
-    });
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 });
     }
 
+    const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
     const [storeSettings] = await db.select().from(settings).limit(1);
 
-    // Get recipient email - try invoice customer phone field repurposed or client email
-    // We'll use the customerPhone field pattern or check if there's a linked client
-    let recipientEmail = '';
-
-    // Check if invoice has a linked client by matching invoiceFor to client name
-    const { clients } = await import('@/db/schema');
+    // Find client email by matching invoiceFor to client name
     const clientList = await db.select().from(clients);
     const matchedClient = clientList.find(c => c.name === invoice.invoiceFor);
-    if (matchedClient?.email) {
-      recipientEmail = matchedClient.email;
-    }
+    const recipientEmail = matchedClient?.email || '';
 
     if (!recipientEmail) {
       return NextResponse.json({ error: 'Email client tidak ditemukan. Pastikan client sudah memiliki email.' }, { status: 400 });
@@ -53,11 +43,11 @@ export async function POST(
       customerPhone: invoice.customerPhone,
       date: invoice.date,
       dueDate: invoice.dueDate,
-      items: invoice.items,
+      items,
       subtotal: invoice.subtotal,
-      discountType: invoice.discountType,
+      discountType: invoice.discountType as 'nominal' | 'percent',
       discountValue: invoice.discountValue,
-      taxType: invoice.taxType,
+      taxType: invoice.taxType as 'nominal' | 'percent',
       taxValue: invoice.taxValue,
       shipping: invoice.shipping,
       downPayment: invoice.downPayment,
@@ -72,14 +62,12 @@ export async function POST(
 
     const subject = `Invoice ${invoice.invoiceNo} - ${storeSettings?.name || 'Amoora Couture'}`;
 
-    // Send email
     const result = await sendEmail({
       to: recipientEmail,
       subject,
       html,
     });
 
-    // Log email
     await db.insert(emailLogs).values({
       invoiceId: id,
       recipientEmail,
