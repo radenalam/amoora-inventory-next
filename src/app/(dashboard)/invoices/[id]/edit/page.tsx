@@ -7,6 +7,7 @@ import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import ClientSearchInput from '@/components/ClientSearchInput';
 import ProductSearchInput from '@/components/ProductSearchInput';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
@@ -43,6 +44,8 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
   });
 
   const [loading, setLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  useUnsavedChanges(hasChanges);
 
   useEffect(() => {
     if (isEdit && id) {
@@ -94,8 +97,19 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
   const taxAmount = formData.taxType === 'percent' ? afterDiscount * ((formData.taxValue || 0) / 100) : (formData.taxValue || 0);
   const total = afterDiscount + taxAmount + (formData.shipping || 0) - (formData.downPayment || 0);
 
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  useEffect(() => {
+    if (formData.invoiceNo && isEdit && !initialLoaded) {
+      setInitialLoaded(true);
+    }
+    if (initialLoaded && isEdit) {
+      setHasChanges(true);
+    }
+  }, [formData, initialLoaded, isEdit]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHasChanges(false);
     setLoading(true);
     try {
       const finalInvoice = { ...formData, subtotal, total };
@@ -106,8 +120,14 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
     setLoading(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+      e.preventDefault();
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-12">
+    <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6 max-w-5xl mx-auto pb-12">
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit Invoice' : 'Buat Invoice Baru'}</h2>
@@ -166,7 +186,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
               </div>
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Invoice #</div>
-                <div className="text-sm text-gray-900 h-6 flex items-center">{formData.invoiceNo}</div>
+                <input type="text" value={formData.invoiceNo} onChange={(e) => setFormData({ ...formData, invoiceNo: e.target.value })} className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" placeholder="INV01/2026" required />
               </div>
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">PO Number</div>
