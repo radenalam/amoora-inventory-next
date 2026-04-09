@@ -159,7 +159,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
           </div>
 
           <div className="mt-4 border-y-2 border-gray-900">
-            <div className="grid grid-cols-4 divide-x divide-gray-300">
+            <div className="grid grid-cols-3 divide-x divide-gray-300">
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Invoice for</div>
                 <ClientSearchInput
@@ -176,10 +176,6 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                 />
               </div>
               <div className="p-2">
-                <div className="text-sm font-bold text-gray-900 mb-1">Payable to</div>
-                <input type="text" value={formData.payableTo} onChange={(e) => setFormData({ ...formData, payableTo: e.target.value })} className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" placeholder="Payable to" required />
-              </div>
-              <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Invoice #</div>
                 <div className="text-sm text-gray-900 h-6 flex items-center">{formData.invoiceNo}</div>
               </div>
@@ -188,7 +184,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                 <input type="text" value={formData.poNumber || ''} onChange={(e) => setFormData({ ...formData, poNumber: e.target.value })} className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" placeholder="-" />
               </div>
             </div>
-            <div className="grid grid-cols-4 divide-x divide-gray-300 border-t border-gray-300">
+            <div className="grid grid-cols-3 divide-x divide-gray-300 border-t border-gray-300">
               <div className="p-2">
                 <textarea value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} className="w-full text-sm border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent resize-none" placeholder="Alamat Customer (opsional)" rows={2} />
               </div>
@@ -204,7 +200,6 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                   <option value="Transfer">Transfer</option>
                 </select>
               </div>
-              <div className="p-2"></div>
             </div>
           </div>
 
