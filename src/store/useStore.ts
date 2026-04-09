@@ -195,7 +195,9 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchProducts: async () => {
     try {
-      const res = await fetch('/api/products', { headers: headers() });
+      const h = headers();
+      if (!h['Authorization']) return;
+      const res = await fetch('/api/products', { headers: h });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       set({ products: data });
@@ -237,18 +239,19 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchInvoices: async (params) => {
     try {
+      const h = headers();
+      if (!h['Authorization']) return;
       const query = new URLSearchParams();
       if (params?.status) query.set('status', params.status);
       if (params?.search) query.set('search', params.search);
       const qs = query.toString();
-      const res = await fetch(`/api/invoices${qs ? '?' + qs : ''}`, { headers: headers() });
+      const res = await fetch(`/api/invoices${qs ? '?' + qs : ''}`, { headers: h });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       set({ invoices: data.invoices });
       return data;
     } catch (err: any) {
       console.error('Fetch invoices error:', err);
-      throw err;
     }
   },
 
