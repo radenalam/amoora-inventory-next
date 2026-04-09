@@ -6,6 +6,7 @@ import { useStore, Invoice, InvoiceItem, InvoiceStatus } from '@/store/useStore'
 import { Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import ClientSearchInput from '@/components/ClientSearchInput';
+import ProductSearchInput from '@/components/ProductSearchInput';
 
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
@@ -211,13 +212,23 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                 {formData.items?.map((item, index) => (
                   <tr key={index} className="border-b border-gray-200 group">
                     <td className="py-2 px-2">
-                      <div className="flex flex-col space-y-1">
-                        <select value={item.productId || ''} onChange={(e) => handleItemChange(index, 'productId', e.target.value)} className="w-full text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-500 focus:outline-none focus:border-blue-500">
-                          <option value="">- Pilih dari Master -</option>
-                          {products.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                        </select>
-                        <input type="text" required value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} className="w-full border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" placeholder="Deskripsi item..." />
-                      </div>
+                      <ProductSearchInput
+                        products={products.map(p => ({ id: p.id, name: p.name, description: p.description, price: p.price, unit: p.unit }))}
+                        value={item.description}
+                        onChange={(val) => handleItemChange(index, 'description', val)}
+                        onSelect={(product) => {
+                          const newItems = [...(formData.items || [])];
+                          newItems[index] = {
+                            ...newItems[index],
+                            productId: product.id,
+                            description: product.name,
+                            unitPrice: product.price,
+                            total: newItems[index].qty * product.price,
+                          };
+                          setFormData({ ...formData, items: newItems });
+                        }}
+                        placeholder="Ketik atau cari produk..."
+                      />
                     </td>
                     <td className="py-2 px-2 text-center align-bottom">
                       <input type="number" min="1" required value={item.qty || ''} onChange={(e) => handleItemChange(index, 'qty', Number(e.target.value))} className="w-full text-center border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent" />
