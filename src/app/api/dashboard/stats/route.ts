@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
-import { db } from '@/db';
-import { invoices, invoiceItems } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { snapshotToArray, queryByField } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -10,17 +9,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get all invoices with their items for dashboard stats
-  const allInvoices = await db.select().from(invoices).orderBy(invoices.date);
-  const allItems = await db.select().from(invoiceItems);
+  const invoicesSnapshot = await db.collection('invoices').orderBy('date', 'asc').get();
+  const allInvoices = snapshotToArray(invoicesSnapshot);
+  const allItems = await queryByField('invoiceItems', 'invoiceId', 'in', allInvoices.map((i: any) => i.id));
 
-  const openInvoices = allInvoices.filter(i => i.status === 'draft' || i.status === 'issued');
-  const paidInvoices = allInvoices.filter(i => i.status === 'paid');
-  const pendingInvoices = allInvoices.filter(i => i.status === 'issued');
+  // For 'in' query with many IDs, fetch all items and filter
+  const itemsSnapshot = await db.collection('invoiceItems').get();
+  const allItemsFiltered = snapshotToArray(itemsSnapshot).filter((item: any) =>
+    allInvoices.some((inv: any) => inv.id === item.invoiceId)
+  );
 
-  // Product sales from items
+  const openInvoices = allInvoices.filter((i: any) => i.status === 'draft' || i.status === 'issued');
+  const paidInvoices = allInvoices.filter((i: any) => i.status === 'paid');
+  const pendingInvoices = allInvoices.filter((i: any) => i.status === 'issued');
+
   const productSales: Record<string, number> = {};
-  allItems.forEach(item => {
+  allItemsFiltered.forEach((item: any) => {
     if (item.description) {
       productSales[item.description] = (productSales[item.description] || 0) + item.total;
     }
@@ -33,13 +37,13 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     totalInvoices: allInvoices.length,
-    totalAmount: allInvoices.reduce((s, i) => s + i.total, 0),
+    totalAmount: allInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
     openCount: openInvoices.length,
-    openTotal: openInvoices.reduce((s, i) => s + i.total, 0),
+    openTotal: openInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
     paidCount: paidInvoices.length,
-    paidTotal: paidInvoices.reduce((s, i) => s + i.total, 0),
+    paidTotal: paidInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
     pendingCount: pendingInvoices.length,
-    pendingTotal: pendingInvoices.reduce((s, i) => s + i.total, 0),
+    pendingTotal: pendingInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
     topProducts,
     recentInvoices: allInvoices.slice(-4).reverse(),
   });

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and, or, like, desc, inArray, count as countFn } from 'drizzle-orm';
-import { db } from '@/db';
-import { invoices, invoiceItems, clients } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { snapshotToArray, create, queryByField, getOneByField } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -16,48 +15,39 @@ export async function GET(request: NextRequest) {
   const page = Number(searchParams.get('page') || '1');
   const limit = Number(searchParams.get('limit') || '20');
 
-  const conditions = [];
+  let query: FirebaseFirestore.Query = db.collection('invoices').orderBy('date', 'desc');
+
   if (status && status !== 'all') {
-    conditions.push(eq(invoices.status, status));
+    query = query.where('status', '==', status);
   }
+
+  // Firestore doesn't support LIKE — filter in-memory for search
+  const snapshot = await query.get();
+  let allInvoices = snapshotToArray(snapshot);
+
   if (search) {
-    conditions.push(
-      or(
-        like(invoices.invoiceNo, `%${search}%`),
-        like(invoices.invoiceFor, `%${search}%`)
-      )!
+    const s = search.toLowerCase();
+    allInvoices = allInvoices.filter((inv: any) =>
+      (inv.invoiceNo || '').toLowerCase().includes(s) ||
+      (inv.invoiceFor || '').toLowerCase().includes(s)
     );
   }
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const total = allInvoices.length;
+  const totalPages = Math.ceil(total / limit);
+  const paginatedInvoices = allInvoices.slice((page - 1) * limit, page * limit);
 
-  const [allInvoices, totalResult] = await Promise.all([
-    db.select().from(invoices)
-      .where(where)
-      .orderBy(desc(invoices.date))
-      .limit(limit)
-      .offset((page - 1) * limit),
-    db.select({ count: countFn() }).from(invoices).where(where),
-  ]);
-
-  const invoiceIds = allInvoices.map(i => i.id);
-  const items = invoiceIds.length > 0
-    ? await db.select().from(invoiceItems).where(inArray(invoiceItems.invoiceId, invoiceIds))
-    : [];
-
-  const invoicesWithItems = allInvoices.map(inv => ({
-    ...inv,
-    items: items.filter(item => item.invoiceId === inv.id),
-  }));
+  // Fetch items for these invoices
+  const invoicesWithItems = await Promise.all(
+    paginatedInvoices.map(async (inv: any) => {
+      const items = await queryByField('invoiceItems', 'invoiceId', '==', inv.id);
+      return { ...inv, items };
+    })
+  );
 
   return NextResponse.json({
     invoices: invoicesWithItems,
-    pagination: {
-      page,
-      limit,
-      total: totalResult[0]?.count || 0,
-      totalPages: Math.ceil((totalResult[0]?.count || 0) / limit),
-    },
+    pagination: { page, limit, total, totalPages },
   });
 }
 
@@ -84,7 +74,7 @@ export async function POST(request: NextRequest) {
   const taxAmount = taxType === 'percent' ? afterDiscount * (taxValue / 100) : taxValue;
   const total = afterDiscount + taxAmount + (shipping || 0) - (downPayment || 0);
 
-  const [invoice] = await db.insert(invoices).values({
+  const invoice = await create('invoices', {
     ...rest,
     date: new Date(rest.date),
     dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
@@ -96,21 +86,29 @@ export async function POST(request: NextRequest) {
     shipping: shipping || 0,
     downPayment: downPayment || 0,
     total,
-  }).returning();
+  });
 
+  // Create invoice items
   if (calculatedItems.length > 0) {
-    await db.insert(invoiceItems).values(
-      calculatedItems.map((item: any) => ({ ...item, invoiceId: invoice.id }))
-    );
+    const batch = db.batch();
+    for (const item of calculatedItems) {
+      const ref = db.collection('invoiceItems').doc();
+      batch.set(ref, {
+        ...item,
+        invoiceId: invoice.id,
+        createdAt: new Date(),
+      });
+    }
+    await batch.commit();
   }
 
-  const createdItems = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoice.id));
+  const createdItems = await queryByField('invoiceItems', 'invoiceId', '==', invoice.id);
 
   // Auto-create client in master if not exists
   if (rest.invoiceFor) {
-    const existingClient = await db.select().from(clients).where(eq(clients.name, rest.invoiceFor)).limit(1);
-    if (existingClient.length === 0) {
-      await db.insert(clients).values({
+    const existingClient = await getOneByField('clients', 'name', '==', rest.invoiceFor);
+    if (!existingClient) {
+      await create('clients', {
         name: rest.invoiceFor,
         email: rest.customerEmail || '',
         phone: rest.customerPhone || '',

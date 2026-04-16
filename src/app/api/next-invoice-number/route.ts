@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, desc } from 'drizzle-orm';
-import { db } from '@/db';
-import { invoices } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { snapshotToArray } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -9,17 +8,16 @@ export async function GET(request: NextRequest) {
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const year = new Date().getFullYear();
-
-  // Get latest invoice number for this year
-  const result = await db.select({ invoiceNo: invoices.invoiceNo })
-    .from(invoices)
-    .where(sql`${invoices.invoiceNo} LIKE ${`INV%/${year}%`}`)
-    .orderBy(desc(invoices.createdAt))
-    .limit(1);
+  const snapshot = await db.collection('invoices').orderBy('createdAt', 'desc').get();
+  const allInvoices = snapshotToArray<any>(snapshot);
 
   let nextNum = 1;
-  if (result.length > 0) {
-    const match = result[0].invoiceNo.match(/INV(\d+)/);
+  const yearInvoices = allInvoices.filter((inv: any) =>
+    inv.invoiceNo && inv.invoiceNo.includes(`/${year}`)
+  );
+
+  if (yearInvoices.length > 0) {
+    const match = yearInvoices[0].invoiceNo.match(/INV(\d+)/);
     if (match) nextNum = parseInt(match[1]) + 1;
   }
 

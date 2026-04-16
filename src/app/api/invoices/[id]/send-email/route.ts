@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { invoices, invoiceItems, settings, emailLogs, clients } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { db } from '@/lib/firebase';
+import { getById, queryByField, create } from '@/lib/firestore';
 import { sendEmail } from '@/lib/email';
 import { generateInvoiceEmailHtml } from '@/lib/email-template';
 import { getTokenFromHeaders } from '@/lib/utils';
@@ -18,41 +17,41 @@ export async function POST(
 
     const { id } = await params;
 
-    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
-
+    const invoice = await getById('invoices', id);
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 });
     }
 
-    const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-    const [storeSettings] = await db.select().from(settings).limit(1);
+    const items = await queryByField('invoiceItems', 'invoiceId', '==', id);
+    
+    const settingsDoc = await db.collection('settings').doc('general').get();
+    const storeSettings = settingsDoc.exists ? settingsDoc.data() : null;
 
-    // Find client email by matching invoiceFor to client name
-    const clientList = await db.select().from(clients);
-    const matchedClient = clientList.find(c => c.name === invoice.invoiceFor);
-    const recipientEmail = matchedClient?.email || '';
+    const clientList = await queryByField('clients', 'name', '==', (invoice as any).invoiceFor);
+    const recipientEmail = clientList.length > 0 ? (clientList[0] as any).email : '';
 
     if (!recipientEmail) {
       return NextResponse.json({ error: 'Email client tidak ditemukan. Pastikan client sudah memiliki email.' }, { status: 400 });
     }
 
+    const inv = invoice as any;
     const html = generateInvoiceEmailHtml({
-      invoiceNo: invoice.invoiceNo,
-      invoiceFor: invoice.invoiceFor,
-      customerAddress: invoice.customerAddress,
-      customerPhone: invoice.customerPhone,
-      date: invoice.date,
-      dueDate: invoice.dueDate,
-      items,
-      subtotal: invoice.subtotal,
-      discountType: invoice.discountType as 'nominal' | 'percent',
-      discountValue: invoice.discountValue,
-      taxType: invoice.taxType as 'nominal' | 'percent',
-      taxValue: invoice.taxValue,
-      shipping: invoice.shipping,
-      downPayment: invoice.downPayment,
-      total: invoice.total,
-      notes: invoice.notes,
+      invoiceNo: inv.invoiceNo,
+      invoiceFor: inv.invoiceFor,
+      customerAddress: inv.customerAddress,
+      customerPhone: inv.customerPhone,
+      date: inv.date,
+      dueDate: inv.dueDate,
+      items: items as any,
+      subtotal: inv.subtotal,
+      discountType: inv.discountType as 'nominal' | 'percent',
+      discountValue: inv.discountValue,
+      taxType: inv.taxType as 'nominal' | 'percent',
+      taxValue: inv.taxValue,
+      shipping: inv.shipping,
+      downPayment: inv.downPayment,
+      total: inv.total,
+      notes: inv.notes,
       storeName: storeSettings?.name || 'Amoora Couture',
       storeAddress: storeSettings?.address || '',
       storePhone: storeSettings?.phone || '',
@@ -60,15 +59,11 @@ export async function POST(
       signerName: storeSettings?.signerName || '',
     });
 
-    const subject = `Invoice ${invoice.invoiceNo} - ${storeSettings?.name || 'Amoora Couture'}`;
+    const subject = `Invoice ${inv.invoiceNo} - ${storeSettings?.name || 'Amoora Couture'}`;
 
-    const result = await sendEmail({
-      to: recipientEmail,
-      subject,
-      html,
-    });
+    const result = await sendEmail({ to: recipientEmail, subject, html });
 
-    await db.insert(emailLogs).values({
+    await create('emailLogs', {
       invoiceId: id,
       recipientEmail,
       subject,

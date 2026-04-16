@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { settings } from '@/db/schema';
+import { db } from '@/lib/firebase';
 import { getAuthUser } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
@@ -10,21 +8,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [current] = await db.select().from(settings).limit(1);
+  const doc = await db.collection('settings').doc('general').get();
 
-  if (!current) {
-    const [created] = await db.insert(settings).values({
+  if (!doc.exists) {
+    // Create default settings
+    await db.collection('settings').doc('general').set({
       name: 'Amoora Couture',
       address: 'Jl. Kaliurang, Tambakan, Sinduharjo, Kec. Sleman, Kabupaten Sleman, DIY 55581',
       phone: '0813-9201-3855',
       email: 'hello@amooracouture.com',
       signerName: 'Amoora Admin',
       defaultNotes: 'Pembayaran dapat ditransfer ke rekening BCA 1234567890 a.n Amoora Couture. Terima kasih atas kepercayaan Anda.',
-    }).returning();
-    return NextResponse.json(created);
+      logoUrl: '',
+      signatureUrl: '',
+      updatedAt: new Date(),
+    });
+    const created = await db.collection('settings').doc('general').get();
+    return NextResponse.json({ id: 'general', ...created.data() });
   }
 
-  return NextResponse.json(current);
+  return NextResponse.json({ id: doc.id, ...doc.data() });
 }
 
 export async function PUT(request: NextRequest) {
@@ -35,27 +38,26 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json();
 
-  // Check if settings exist
-  const [existing] = await db.select().from(settings).limit(1);
+  const doc = await db.collection('settings').doc('general').get();
 
-  if (existing) {
-    const [updated] = await db.update(settings)
-      .set({
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.address !== undefined && { address: body.address }),
-        ...(body.phone !== undefined && { phone: body.phone }),
-        ...(body.email !== undefined && { email: body.email }),
-        ...(body.signerName !== undefined && { signerName: body.signerName }),
-        ...(body.defaultNotes !== undefined && { defaultNotes: body.defaultNotes }),
-        ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl }),
-        ...(body.signatureUrl !== undefined && { signatureUrl: body.signatureUrl }),
-      })
-      .where(eq(settings.id, existing.id))
-      .returning();
-    return NextResponse.json(updated);
+  if (doc.exists) {
+    const updates: Record<string, any> = { updatedAt: new Date() };
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.address !== undefined) updates.address = body.address;
+    if (body.phone !== undefined) updates.phone = body.phone;
+    if (body.email !== undefined) updates.email = body.email;
+    if (body.signerName !== undefined) updates.signerName = body.signerName;
+    if (body.defaultNotes !== undefined) updates.defaultNotes = body.defaultNotes;
+    if (body.logoUrl !== undefined) updates.logoUrl = body.logoUrl;
+    if (body.signatureUrl !== undefined) updates.signatureUrl = body.signatureUrl;
+
+    await db.collection('settings').doc('general').update(updates);
+    const updated = await db.collection('settings').doc('general').get();
+    return NextResponse.json({ id: updated.id, ...updated.data() });
   }
 
-  const [created] = await db.insert(settings).values({
+  // Create if not exists
+  await db.collection('settings').doc('general').set({
     name: body.name || 'Amoora Couture',
     address: body.address || '',
     phone: body.phone || '',
@@ -64,9 +66,8 @@ export async function PUT(request: NextRequest) {
     defaultNotes: body.defaultNotes || '',
     logoUrl: body.logoUrl || '',
     signatureUrl: body.signatureUrl || '',
-  }).returning();
-
-  return NextResponse.json(created);
+    updatedAt: new Date(),
+  });
+  const created = await db.collection('settings').doc('general').get();
+  return NextResponse.json({ id: created.id, ...created.data() });
 }
-
-

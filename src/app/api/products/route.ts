@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db } from '@/db';
-import { products } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { snapshotToArray, create } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -10,7 +9,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const allProducts = await db.select().from(products).orderBy(products.createdAt);
+  const snapshot = await db.collection('products').orderBy('createdAt', 'asc').get();
+  const allProducts = snapshotToArray(snapshot);
+
   return NextResponse.json(allProducts);
 }
 
@@ -27,12 +28,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Nama dan harga wajib diisi' }, { status: 400 });
   }
 
-  const [product] = await db.insert(products).values({
+  const product = await create('products', {
     name,
     description: description || '',
     price: Number(price),
     unit: unit || 'pcs',
-  }).returning();
+  });
 
   return NextResponse.json(product, { status: 201 });
 }

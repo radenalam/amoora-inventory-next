@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { db } from '@/db';
-import { products } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { update, remove } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,15 +12,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const body = await request.json();
 
-  const [product] = await db.update(products)
-    .set({
-      ...(body.name !== undefined && { name: body.name }),
-      ...(body.description !== undefined && { description: body.description }),
-      ...(body.price !== undefined && { price: Number(body.price) }),
-      ...(body.unit !== undefined && { unit: body.unit }),
-    })
-    .where(eq(products.id, id))
-    .returning();
+  const updates: Record<string, any> = {};
+  if (body.name !== undefined) updates.name = body.name;
+  if (body.description !== undefined) updates.description = body.description;
+  if (body.price !== undefined) updates.price = Number(body.price);
+  if (body.unit !== undefined) updates.unit = body.unit;
+
+  const product = await update('products', id, updates);
 
   if (!product) {
     return NextResponse.json({ error: 'Produk tidak ditemukan' }, { status: 404 });
@@ -37,6 +34,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   const { id } = await params;
-  await db.delete(products).where(eq(products.id, id));
+  await remove('products', id);
   return NextResponse.json({ message: 'Produk berhasil dihapus' });
 }

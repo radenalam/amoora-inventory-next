@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { getOneByField, create } from '@/lib/firestore';
 import { generateToken, verifyToken, getAuthUser } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
@@ -15,13 +14,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Semua field wajib diisi' }, { status: 400 });
       }
 
-      const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (existing.length > 0) {
+      const existing = await getOneByField('users', 'email', '==', email);
+      if (existing) {
         return NextResponse.json({ error: 'Email sudah terdaftar' }, { status: 409 });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      const [user] = await db.insert(users).values({ name, email, password: hashedPassword }).returning();
+      const user = await create('users', { name, email, password: hashedPassword });
       const token = generateToken(user.id, user.email);
 
       return NextResponse.json({
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email dan password wajib diisi' }, { status: 400 });
     }
 
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const user = await getOneByField<any>('users', 'email', '==', email);
     if (!user) {
       return NextResponse.json({ error: 'Email atau password salah' }, { status: 401 });
     }
@@ -62,11 +61,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
   }
 
-  const [user] = await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, authUser.userId)).limit(1);
-
-  if (!user) {
+  const doc = await db.collection('users').doc(authUser.userId).get();
+  if (!doc.exists) {
     return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  const data = doc.data();
+  return NextResponse.json({ user: { id: doc.id, name: data?.name, email: data?.email } });
 }

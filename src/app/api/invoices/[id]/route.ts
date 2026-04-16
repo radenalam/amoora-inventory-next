@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and, or, like, desc, sql, count as countFn } from 'drizzle-orm';
-import { db } from '@/db';
-import { invoices, invoiceItems } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { getById, update, remove, queryByField } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
-// GET /api/invoices/[id]
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,18 +13,15 @@ export async function GET(
   }
 
   const { id } = await params;
-
-  const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  const invoice = await getById('invoices', id);
   if (!invoice) {
     return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 });
   }
 
-  const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-
+  const items = await queryByField('invoiceItems', 'invoiceId', '==', id);
   return NextResponse.json({ ...invoice, items });
 }
 
-// PUT /api/invoices/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,7 +35,6 @@ export async function PUT(
   const body = await request.json();
   const { items, discountType, discountValue, taxType, taxValue, shipping, downPayment, ...rest } = body;
 
-  // If items provided, recalculate and replace
   if (items) {
     const calculatedItems = items.map((item: any) => ({
       productId: item.productId || null,
@@ -56,60 +50,63 @@ export async function PUT(
     const taxAmount = taxType === 'percent' ? afterDiscount * (taxValue / 100) : taxValue;
     const total = afterDiscount + taxAmount + (shipping || 0) - (downPayment || 0);
 
-    await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-    if (calculatedItems.length > 0) {
-      await db.insert(invoiceItems).values(calculatedItems.map((item: any) => ({ ...item, invoiceId: id })));
+    // Delete existing items
+    const existingItems = await queryByField('invoiceItems', 'invoiceId', '==', id);
+    const batch = db.batch();
+    for (const item of existingItems) {
+      batch.delete(db.collection('invoiceItems').doc(item.id));
     }
+    // Create new items
+    for (const item of calculatedItems) {
+      const ref = db.collection('invoiceItems').doc();
+      batch.set(ref, { ...item, invoiceId: id, createdAt: new Date() });
+    }
+    await batch.commit();
 
-    const [updated] = await db.update(invoices)
-      .set({
-        ...rest,
-        date: rest.date ? new Date(rest.date) : undefined,
-        dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
-        subtotal,
-        total,
-      })
-      .where(eq(invoices.id, id))
-      .returning();
+    const updates: Record<string, any> = {
+      subtotal,
+      total,
+      discountType: discountType || 'nominal',
+      discountValue: discountValue || 0,
+      taxType: taxType || 'nominal',
+      taxValue: taxValue || 0,
+      shipping: shipping || 0,
+      downPayment: downPayment || 0,
+      ...rest,
+    };
+    if (updates.date) updates.date = new Date(updates.date);
+    if (updates.dueDate) updates.dueDate = new Date(updates.dueDate);
 
-    const newItems = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
+    const updated = await update('invoices', id, updates);
+    const newItems = await queryByField('invoiceItems', 'invoiceId', '==', id);
     return NextResponse.json({ ...updated, items: newItems });
   }
 
-  const [updated] = await db.update(invoices)
-    .set({
-      ...(rest.invoiceNo !== undefined && { invoiceNo: rest.invoiceNo }),
-      ...(rest.date !== undefined && { date: new Date(rest.date) }),
-      ...(rest.dueDate !== undefined && { dueDate: rest.dueDate ? new Date(rest.dueDate) : null }),
-      ...(rest.poNumber !== undefined && { poNumber: rest.poNumber || null }),
-      ...(rest.paymentMethod !== undefined && { paymentMethod: rest.paymentMethod }),
-      ...(rest.invoiceFor !== undefined && { invoiceFor: rest.invoiceFor }),
-      ...(rest.payableTo !== undefined && { payableTo: rest.payableTo }),
-      ...(rest.customerAddress !== undefined && { customerAddress: rest.customerAddress }),
-      ...(rest.customerPhone !== undefined && { customerPhone: rest.customerPhone }),
-      ...(rest.notes !== undefined && { notes: rest.notes }),
-      ...(rest.status !== undefined && { status: rest.status }),
-      ...(rest.subtotal !== undefined && { subtotal: rest.subtotal }),
-      ...(rest.total !== undefined && { total: rest.total }),
-      ...(discountType !== undefined && { discountType }),
-      ...(discountValue !== undefined && { discountValue }),
-      ...(taxType !== undefined && { taxType }),
-      ...(taxValue !== undefined && { taxValue }),
-      ...(shipping !== undefined && { shipping }),
-      ...(downPayment !== undefined && { downPayment }),
-    })
-    .where(eq(invoices.id, id))
-    .returning();
+  const updates: Record<string, any> = {};
+  const fieldMap: Record<string, string> = {
+    invoiceNo: 'invoiceNo', date: 'date', dueDate: 'dueDate', poNumber: 'poNumber',
+    paymentMethod: 'paymentMethod', invoiceFor: 'invoiceFor', payableTo: 'payableTo',
+    customerAddress: 'customerAddress', customerPhone: 'customerPhone',
+    notes: 'notes', status: 'status', subtotal: 'subtotal', total: 'total',
+    discountType: 'discountType', discountValue: 'discountValue',
+    taxType: 'taxType', taxValue: 'taxValue', shipping: 'shipping', downPayment: 'downPayment',
+  };
 
+  for (const [key, field] of Object.entries(fieldMap)) {
+    if (rest[key] !== undefined) {
+      updates[field] = (key === 'date' || key === 'dueDate') ? new Date(rest[key]) : rest[key];
+    }
+  }
+
+  const updated = await update('invoices', id, updates);
   if (!updated) {
     return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 });
   }
 
-  const invItems = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
+  const invItems = await queryByField('invoiceItems', 'invoiceId', '==', id);
   return NextResponse.json({ ...updated, items: invItems });
 }
 
-// DELETE /api/invoices/[id]
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -120,7 +117,13 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-  await db.delete(invoices).where(eq(invoices.id, id));
+  const existingItems = await queryByField('invoiceItems', 'invoiceId', '==', id);
+  const batch = db.batch();
+  for (const item of existingItems) {
+    batch.delete(db.collection('invoiceItems').doc(item.id));
+  }
+  batch.delete(db.collection('invoices').doc(id));
+  await batch.commit();
+
   return NextResponse.json({ message: 'Invoice berhasil dihapus' });
 }

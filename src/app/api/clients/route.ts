@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, desc } from 'drizzle-orm';
-import { db } from '@/db';
-import { clients } from '@/db/schema';
+import { db } from '@/lib/firebase';
+import { snapshotToArray, create } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const allClients = await db.select().from(clients).orderBy(desc(clients.updatedAt));
+  const snapshot = await db.collection('clients').orderBy('updatedAt', 'desc').get();
+  const allClients = snapshotToArray(snapshot);
   return NextResponse.json(allClients);
 }
 
@@ -21,13 +21,13 @@ export async function POST(request: NextRequest) {
 
   if (!name) return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 });
 
-  const [client] = await db.insert(clients).values({
+  const client = await create('clients', {
     name,
     email: email || '',
     phone: phone || '',
     address: address || '',
     notes: notes || '',
-  }).returning();
+  });
 
   return NextResponse.json(client, { status: 201 });
 }
