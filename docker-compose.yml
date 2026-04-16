@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  amoora-firebase:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: amoora-firebase-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - amoora_firebase_uploads:/app/public/uploads
+    ports:
+      - "3007:3006"
+    networks:
+      - traefik_proxy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3006"]
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+      interval: 15s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_proxy
+      - traefik.http.routers.amoora-firebase.rule=Host(`amoora-firebase.radenalam.com`)
+      - traefik.http.routers.amoora-firebase.entrypoints=web
+      - traefik.http.services.amoora-firebase.loadbalancer.server.port=3006
+
+networks:
+  traefik_proxy:
+    external: true
+
+volumes:
+  amoora_firebase_uploads:
