@@ -59,7 +59,7 @@ export default function LoginClient() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-shadow"
-                placeholder="admin@amooracouture.com"
+                placeholder="email@company.com"
               />
             </div>
 
@@ -94,11 +94,7 @@ export default function LoginClient() {
             </div>
           </form>
 
-          <div className="mt-6 bg-gray-50 p-3 rounded-lg border border-gray-100">
-            <p className="text-xs text-gray-400 text-center">
-              Demo: <span className="font-medium text-gray-500">admin@amooracouture.com</span> / <span className="font-medium text-gray-500">admin123</span>
-            </p>
-          </div>
+
         </div>
       </div>
     </div>

@@ -1,14 +1,32 @@
 import { db } from './firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 
+// Convert Firestore Timestamp to ISO string recursively
+function serializeTimestamps(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'object' && obj._seconds !== undefined && obj._nanoseconds !== undefined) {
+    return new Date(obj._seconds * 1000 + obj._nanoseconds / 1e6).toISOString();
+  }
+  if (Array.isArray(obj)) return obj.map(serializeTimestamps);
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = serializeTimestamps(obj[key]);
+    }
+    return result;
+  }
+  if (obj instanceof Date) return obj.toISOString();
+  return obj;
+}
+
 // Helper to convert Firestore document to plain object with ID
 function docToObj<T>(doc: FirebaseFirestore.QueryDocumentSnapshot): T & { id: string } {
-  return { id: doc.id, ...doc.data() } as T & { id: string };
+  return serializeTimestamps({ id: doc.id, ...doc.data() }) as T & { id: string };
 }
 
 // Helper to convert Firestore snapshot to array
 export function snapshotToArray<T = any>(snapshot: FirebaseFirestore.QuerySnapshot<any>) {
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T & { id: string }));
+  return snapshot.docs.map(doc => serializeTimestamps({ id: doc.id, ...doc.data() }) as T & { id: string });
 }
 
 // Generic CRUD helpers
@@ -22,7 +40,7 @@ export async function getAll<T>(
 export async function getById<T>(collection: string, id: string): Promise<(T & { id: string }) | null> {
   const doc = await db.collection(collection).doc(id).get();
   if (!doc.exists) return null;
-  return { id: doc.id, ...doc.data() } as T & { id: string };
+  return serializeTimestamps({ id: doc.id, ...doc.data() }) as T & { id: string };
 }
 
 export async function create<T extends Record<string, any>>(
@@ -35,7 +53,7 @@ export async function create<T extends Record<string, any>>(
     createdAt: now,
     updatedAt: now,
   });
-  return { id: docRef.id, ...data, createdAt: now, updatedAt: now } as T & { id: string };
+  return { id: docRef.id, ...data, createdAt: now.toISOString(), updatedAt: now.toISOString() } as T & { id: string };
 }
 
 export async function update<T extends Record<string, any>>(
@@ -53,7 +71,7 @@ export async function update<T extends Record<string, any>>(
   });
 
   const updated = await docRef.get();
-  return { id: updated.id, ...updated.data() } as T & { id: string };
+  return serializeTimestamps({ id: updated.id, ...updated.data() }) as T & { id: string };
 }
 
 export async function remove(collection: string, id: string): Promise<void> {
@@ -85,7 +103,7 @@ export async function getOneByField<T>(
 export async function getNextCounter(key: string): Promise<number> {
   const docRef = db.collection('counters').doc(key);
   const doc = await docRef.get();
-  
+
   if (!doc.exists) {
     await docRef.set({ value: 1 });
     return 1;
