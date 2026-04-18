@@ -43,6 +43,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
 
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [newClient, setNewClient] = useState<{ name: string; email: string; phone: string; address: string } | null>(null);
   useUnsavedChanges(hasChanges);
 
   useEffect(() => {
@@ -181,6 +182,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                   }))}
                   onCreateNew={(name) => {
                     setFormData(prev => ({ ...prev, invoiceFor: name, clientId: '' }));
+                    setNewClient({ name, email: '', phone: '', address: '' });
                   }}
                   placeholder="Ketik atau cari nama client..."
                 />

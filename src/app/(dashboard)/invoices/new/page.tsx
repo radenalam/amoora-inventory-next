@@ -12,7 +12,7 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
   const router = useRouter();
-  const { invoices, products, settings, clients, addInvoice, updateInvoice, fetchInvoice, fetchNextInvoiceNo } = useStore();
+  const { invoices, products, settings, clients, addInvoice, updateInvoice, addClient, fetchInvoice, fetchNextInvoiceNo } = useStore();
 
   const isEdit = Boolean(id);
 
@@ -38,6 +38,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
 
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [newClient, setNewClient] = useState<{ name: string; email: string; phone: string; address: string } | null>(null);
   useUnsavedChanges(hasChanges);
 
   const generateInvoiceNo = async () => {
@@ -123,7 +124,17 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
     setHasChanges(false);
     setLoading(true);
     try {
-      const finalInvoice = { ...formData, subtotal, total };
+      let clientId = formData.clientId;
+      // If new client, create it first via API to get the ID
+      if (newClient && !clientId) {
+        const h = { 'Authorization': `Bearer ${localStorage.getItem('amoora_token')}` };
+        const res = await fetch('/api/clients', { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(newClient) });
+        if (res.ok) {
+          const created = await res.json();
+          clientId = created.id;
+        }
+      }
+      const finalInvoice = { ...formData, clientId, subtotal, total };
       if (isEdit && id) await updateInvoice(id, finalInvoice);
       else await addInvoice(finalInvoice);
       router.push('/invoices');
@@ -194,6 +205,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                   }))}
                   onCreateNew={(name) => {
                     setFormData(prev => ({ ...prev, invoiceFor: name, clientId: '' }));
+                    setNewClient({ name, email: '', phone: '', address: '' });
                   }}
                 placeholder="Ketik atau cari nama client..."
                 />
@@ -209,7 +221,17 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
             </div>
             <div className="grid grid-cols-3 divide-x divide-gray-300 border-t border-gray-300">
               <div className="p-2">
-                
+                {newClient ? (
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-bold text-green-700">+ Client Baru</div>
+                    <input type="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Email" />
+                    <input type="text" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Phone" />
+                    <textarea value={newClient.address} onChange={(e) => setNewClient({ ...newClient, address: e.target.value })} className="w-full text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none" placeholder="Alamat" rows={2} />
+                    <button type="button" onClick={() => { setNewClient(null); setFormData(prev => ({ ...prev, invoiceFor: '', clientId: '' })); }} className="text-xs text-gray-400 hover:text-gray-600">Batal</button>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400">Pilih client di atas</div>
+                )}
               </div>
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Dropping</div>
