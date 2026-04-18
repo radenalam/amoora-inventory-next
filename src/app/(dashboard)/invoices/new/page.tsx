@@ -22,6 +22,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
     dueDate: '',
     poNumber: '',
     paymentMethod: 'Bank',
+    clientId: '',
     invoiceFor: '',
     payableTo: '',
     customerAddress: '',
@@ -189,10 +190,14 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                   onChange={(val) => setFormData(prev => ({ ...prev, invoiceFor: val }))}
                   onSelect={(client) => setFormData(prev => ({
                     ...prev,
+                    clientId: client.id,
                     invoiceFor: client.name,
                     customerAddress: client.address || '',
                     customerPhone: client.phone || '',
                   }))}
+                  onCreateNew={(name) => {
+                    setFormData(prev => ({ ...prev, invoiceFor: name, clientId: '', customerAddress: '', customerPhone: '' }));
+                  }}
                 placeholder="Ketik atau cari nama client..."
                 />
               </div>
@@ -207,7 +212,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
             </div>
             <div className="grid grid-cols-3 divide-x divide-gray-300 border-t border-gray-300">
               <div className="p-2">
-                <textarea value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} className="w-full text-sm border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent resize-none" placeholder="Alamat Customer (opsional)" rows={2} />
+                <textarea value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} className="w-full text-sm border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent resize-none" placeholder={formData.clientId ? 'Alamat dari client (otomatis)' : 'Alamat Customer (opsional)'} rows={2} readOnly={!!formData.clientId} />
               </div>
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Dropping</div>

@@ -30,6 +30,7 @@ export interface Invoice {
   dueDate?: string | null;
   poNumber?: string | null;
   paymentMethod: string;
+  clientId: string;
   invoiceFor: string;
   payableTo: string;
   customerAddress: string;

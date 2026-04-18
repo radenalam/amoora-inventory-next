@@ -177,10 +177,14 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                   onChange={(val) => setFormData(prev => ({ ...prev, invoiceFor: val }))}
                   onSelect={(client) => setFormData(prev => ({
                     ...prev,
+                    clientId: client.id,
                     invoiceFor: client.name,
                     customerAddress: client.address || '',
                     customerPhone: client.phone || '',
                   }))}
+                  onCreateNew={(name) => {
+                    setFormData(prev => ({ ...prev, invoiceFor: name, clientId: '', customerAddress: '', customerPhone: '' }));
+                  }}
                   placeholder="Ketik atau cari nama client..."
                 />
               </div>

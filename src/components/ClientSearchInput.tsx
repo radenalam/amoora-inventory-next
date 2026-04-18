@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, X, Mail, Phone, MapPin } from 'lucide-react';
+import { Search, X, Mail, Phone, Plus } from 'lucide-react';
 
 interface ClientOption {
   id: string;
@@ -16,10 +16,11 @@ interface ClientSearchInputProps {
   value: string | undefined;
   onChange: (value: string) => void;
   onSelect: (client: ClientOption) => void;
+  onCreateNew: (name: string) => void;
   placeholder?: string;
 }
 
-export default function ClientSearchInput({ clients, value, onChange, onSelect, placeholder = 'Ketik nama client...' }: ClientSearchInputProps) {
+export default function ClientSearchInput({ clients, value, onChange, onSelect, onCreateNew, placeholder = 'Ketik nama client...' }: ClientSearchInputProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -34,6 +35,8 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
       ).slice(0, 8)
     : [];
 
+  const isNew = query.length > 0 && !clients.some(c => c.name.toLowerCase() === query.toLowerCase());
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -44,20 +47,22 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    setSelectedIndex(-1);
-  }, [query]);
+  useEffect(() => { setSelectedIndex(-1); }, [query]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(i => Math.min(i + 1, filtered.length - 1));
+      setSelectedIndex(i => Math.min(i + 1, filtered.length));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex(i => Math.max(i - 1, -1));
-    } else if (e.key === 'Enter' && selectedIndex >= 0 && filtered[selectedIndex]) {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      handleSelect(filtered[selectedIndex]);
+      if (selectedIndex >= 0 && filtered[selectedIndex]) {
+        handleSelect(filtered[selectedIndex]);
+      } else if (isNew && selectedIndex === filtered.length) {
+        handleCreateNew();
+      }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
@@ -70,9 +75,17 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
     onSelect(client);
   };
 
+  const handleCreateNew = () => {
+    if (!query.trim()) return;
+    onCreateNew(query.trim());
+    setQuery('');
+    setIsOpen(false);
+  };
+
   const handleClear = () => {
     onChange('');
     setQuery('');
+    onSelect({ id: '', name: '', email: '', phone: '', address: '' });
     inputRef.current?.focus();
   };
 
@@ -88,9 +101,7 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
             setQuery(e.target.value);
             setIsOpen(true);
           }}
-          onFocus={() => {
-            if (query || value) setIsOpen(true);
-          }}
+          onFocus={() => { if (query || value) setIsOpen(true); }}
           onKeyDown={handleKeyDown}
           className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent pr-8"
           placeholder={placeholder}
@@ -106,7 +117,7 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
         </div>
       </div>
 
-      {isOpen && filtered.length > 0 && (
+      {isOpen && (filtered.length > 0 || isNew) && (
         <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
           {filtered.map((client, index) => (
             <button
@@ -115,7 +126,7 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
               onClick={() => handleSelect(client)}
               className={`w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors flex flex-col gap-0.5 ${
                 index === selectedIndex ? 'bg-blue-50' : ''
-              } ${index !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
+              } ${index !== filtered.length - 1 || isNew ? 'border-b border-gray-50' : ''}`}
             >
               <span className="text-sm font-medium text-gray-900">{client.name}</span>
               <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -124,15 +135,18 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
               </span>
             </button>
           ))}
-        </div>
-      )}
-
-      {isOpen && query.length > 0 && filtered.length === 0 && (
-        <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-          <p className="text-sm text-gray-500">
-            Client &quot;{query}&quot; tidak ditemukan.
-            <span className="font-medium text-gray-700"> Lanjutkan ketik untuk buat baru.</span>
-          </p>
+          {isNew && (
+            <button
+              type="button"
+              onClick={handleCreateNew}
+              className={`w-full text-left px-3 py-2 hover:bg-green-50 transition-colors flex items-center gap-2 text-green-700 ${
+                selectedIndex === filtered.length ? 'bg-green-50' : ''
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">Buat client &quot;{query}&quot;</span>
+            </button>
+          )}
         </div>
       )}
     </div>

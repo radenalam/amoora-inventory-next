@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { snapshotToArray, create, queryByField, getOneByField } from '@/lib/firestore';
+import { snapshotToArray, create, queryByField, getOneByField, getById } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -74,8 +74,36 @@ export async function POST(request: NextRequest) {
   const taxAmount = taxType === 'percent' ? afterDiscount * (taxValue / 100) : taxValue;
   const total = afterDiscount + taxAmount + (shipping || 0) - (downPayment || 0);
 
+  // If clientId provided, fetch client data
+  let clientData: Record<string, any> | null = null;
+  if (rest.clientId) {
+    clientData = await getById('clients', rest.clientId);
+  }
+
+  // Auto-create client if invoiceFor is set but no clientId
+  if (rest.invoiceFor && !rest.clientId) {
+    const existingClient = await getOneByField('clients', 'name', '==', rest.invoiceFor);
+    if (existingClient) {
+      clientData = existingClient;
+      rest.clientId = existingClient.id;
+    } else {
+      const newClient = await create('clients', {
+        name: rest.invoiceFor,
+        email: rest.customerEmail || '',
+        phone: rest.customerPhone || '',
+        address: rest.customerAddress || '',
+      });
+      clientData = newClient;
+      rest.clientId = newClient.id;
+    }
+  }
+
   const invoice = await create('invoices', {
     ...rest,
+    invoiceFor: clientData?.name || rest.invoiceFor,
+    customerAddress: clientData?.address || rest.customerAddress || '',
+    customerPhone: clientData?.phone || rest.customerPhone || '',
+    customerEmail: clientData?.email || rest.customerEmail || '',
     date: new Date(rest.date),
     dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
     subtotal,
@@ -103,19 +131,6 @@ export async function POST(request: NextRequest) {
   }
 
   const createdItems = await queryByField('invoiceItems', 'invoiceId', '==', invoice.id);
-
-  // Auto-create client in master if not exists
-  if (rest.invoiceFor) {
-    const existingClient = await getOneByField('clients', 'name', '==', rest.invoiceFor);
-    if (!existingClient) {
-      await create('clients', {
-        name: rest.invoiceFor,
-        email: rest.customerEmail || '',
-        phone: rest.customerPhone || '',
-        address: rest.customerAddress || '',
-      });
-    }
-  }
 
   return NextResponse.json({ ...invoice, items: createdItems }, { status: 201 });
 }
