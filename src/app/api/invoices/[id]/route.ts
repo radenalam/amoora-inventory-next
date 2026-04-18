@@ -86,7 +86,7 @@ export async function PUT(
   const fieldMap: Record<string, string> = {
     invoiceNo: 'invoiceNo', date: 'date', dueDate: 'dueDate', poNumber: 'poNumber',
     paymentMethod: 'paymentMethod', invoiceFor: 'invoiceFor', payableTo: 'payableTo',
-    customerAddress: 'customerAddress', customerPhone: 'customerPhone',
+
     notes: 'notes', status: 'status', subtotal: 'subtotal', total: 'total',
     discountType: 'discountType', discountValue: 'discountValue',
     taxType: 'taxType', taxValue: 'taxValue', shipping: 'shipping', downPayment: 'downPayment',

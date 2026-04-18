@@ -89,9 +89,6 @@ export async function POST(request: NextRequest) {
     } else {
       const newClient = await create('clients', {
         name: rest.invoiceFor,
-        email: rest.customerEmail || '',
-        phone: rest.customerPhone || '',
-        address: rest.customerAddress || '',
       });
       clientData = newClient;
       rest.clientId = newClient.id;
@@ -101,9 +98,6 @@ export async function POST(request: NextRequest) {
   const invoice = await create('invoices', {
     ...rest,
     invoiceFor: clientData?.name || rest.invoiceFor,
-    customerAddress: clientData?.address || rest.customerAddress || '',
-    customerPhone: clientData?.phone || rest.customerPhone || '',
-    customerEmail: clientData?.email || rest.customerEmail || '',
     date: new Date(rest.date),
     dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
     subtotal,

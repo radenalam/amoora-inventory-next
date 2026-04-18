@@ -21,12 +21,19 @@ export async function GET(
   if (!invoice) return NextResponse.json({ error: 'Invoice tidak ditemukan' }, { status: 404 });
 
   const items = await queryByField('invoiceItems', 'invoiceId', '==', id);
-  
+
+  // Fetch client data
+  const inv = invoice as any;
+  const client: Record<string, any> = {};
+  if (inv.clientId) {
+    const clientDoc = await getById('clients', inv.clientId);
+    if (clientDoc) Object.assign(client, clientDoc);
+  }
+
   // Fetch settings (cached)
   const cached = getCached<Record<string, any>>(SETTINGS_CACHE_KEY);
   const settings: Record<string, any> = cached || { name: '', address: '', phone: '', email: '', signerName: '' };
 
-  const inv = invoice as any;
   const totalQty = items.reduce((s: number, i: any) => s + i.qty, 0);
   const discountAmount = inv.discountType === 'percent' ? inv.subtotal * (inv.discountValue / 100) : inv.discountValue;
   const afterDiscount = inv.subtotal - discountAmount;
@@ -72,8 +79,8 @@ export async function GET(
       <div>
         <p style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px 0;">Invoice For:</p>
         <p style="font-size:15px;font-weight:700;margin:0;">${inv.invoiceFor}</p>
-        <p style="font-size:13px;color:#666;margin:6px 0 0 0;white-space:pre-line;">${inv.customerAddress || ''}</p>
-        ${inv.customerPhone ? `<p style="font-size:13px;color:#666;margin:6px 0 0 0;">Telp: ${inv.customerPhone}</p>` : ''}
+        <p style="font-size:13px;color:#666;margin:6px 0 0 0;white-space:pre-line;">${client.address || ''}</p>
+        ${client.phone ? `<p style="font-size:13px;color:#666;margin:6px 0 0 0;">Telp: ${client.phone}</p>` : ''}
       </div>
       <div>
         <p style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px 0;">Payable To:</p>

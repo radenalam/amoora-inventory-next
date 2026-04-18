@@ -33,9 +33,7 @@ export interface Invoice {
   clientId: string;
   invoiceFor: string;
   payableTo: string;
-  customerAddress: string;
-  customerPhone: string;
-  customerEmail: string;
+
   items: InvoiceItem[];
   subtotal: number;
   discountType: 'nominal' | 'percent';

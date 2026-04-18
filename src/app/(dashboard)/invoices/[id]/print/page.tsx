@@ -21,6 +21,7 @@ export default function InvoicePrintPage() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string>('');
   const [clientEmail, setClientEmail] = useState<string>('');
+  const [clientData, setClientData] = useState<any>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -38,7 +39,7 @@ export default function InvoicePrintPage() {
               const match = clients.find((cl: any) =>
                 cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
               );
-              if (match?.email) setClientEmail(match.email);
+              if (match?.email) { setClientEmail(match.email); setClientData(match); }
             }
           } catch {}
         }
@@ -51,7 +52,7 @@ export default function InvoicePrintPage() {
     setGenerating(true);
     try {
       const blob = await pdf(
-        <InvoicePDFDocument invoice={invoice} settings={settings} />
+        <InvoicePDFDocument invoice={invoice} settings={settings} clientData={clientData} />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -71,7 +72,7 @@ export default function InvoicePrintPage() {
     setGenerating(true);
     try {
       const blob = await pdf(
-        <InvoicePDFDocument invoice={invoice} settings={settings} />
+        <InvoicePDFDocument invoice={invoice} settings={settings} clientData={clientData} />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const win = window.open(url, '_blank');
@@ -192,8 +193,8 @@ export default function InvoicePrintPage() {
             <div>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Invoice For:</h3>
               <p className="text-base font-bold text-gray-900">{invoice.invoiceFor}</p>
-              <p className="text-sm text-gray-500 mt-1 whitespace-pre-line">{invoice.customerAddress}</p>
-              {invoice.customerPhone && <p className="text-sm text-gray-500 mt-1">Telp: {invoice.customerPhone}</p>}
+              <p className="text-sm text-gray-500 mt-1 whitespace-pre-line">{clientData?.address || ''}</p>
+              {clientData?.phone && <p className="text-sm text-gray-500 mt-1">Telp: {clientData.phone}</p>}
             </div>
             <div>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Payable To:</h3>

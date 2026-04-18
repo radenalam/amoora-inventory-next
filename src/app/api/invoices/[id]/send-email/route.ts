@@ -25,7 +25,16 @@ export async function POST(
     }
 
     const items = await queryByField('invoiceItems', 'invoiceId', '==', id);
-    
+
+    // Fetch client data
+    const inv = invoice as any;
+    let clientData: Record<string, any> = {};
+    if (inv.clientId) {
+      const cd = await getById('clients', inv.clientId);
+      if (cd) clientData = cd;
+    }
+    const recipientEmail = clientData.email || '';
+
     let storeSettings = getCached<any>('settings:general');
     if (!storeSettings) {
       const settingsDoc = await db.collection('settings').doc('general').get();
@@ -33,19 +42,15 @@ export async function POST(
       if (storeSettings) setCache('settings:general', storeSettings);
     }
 
-    const clientList = await queryByField('clients', 'name', '==', (invoice as any).invoiceFor);
-    const recipientEmail = clientList.length > 0 ? (clientList[0] as any).email : '';
-
     if (!recipientEmail) {
       return NextResponse.json({ error: 'Email client tidak ditemukan. Pastikan client sudah memiliki email.' }, { status: 400 });
     }
 
-    const inv = invoice as any;
     const html = generateInvoiceEmailHtml({
       invoiceNo: inv.invoiceNo,
       invoiceFor: inv.invoiceFor,
-      customerAddress: inv.customerAddress,
-      customerPhone: inv.customerPhone,
+      customerAddress: clientData.address || '',
+      customerPhone: clientData.phone || '',
       date: inv.date,
       dueDate: inv.dueDate,
       items: items as any,

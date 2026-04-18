@@ -209,9 +209,10 @@ function formatDate(date: Date | string): string {
 interface InvoicePDFProps {
   invoice: any;
   settings: any;
+  clientData?: any;
 }
 
-export default function InvoicePDF({ invoice, settings }: InvoicePDFProps) {
+export default function InvoicePDF({ invoice, settings, clientData }: InvoicePDFProps) {
   const totalQty = invoice.items.reduce((sum: number, item: any) => sum + item.qty, 0);
   const discountAmount = invoice.discountType === 'percent'
     ? invoice.subtotal * (invoice.discountValue / 100)
@@ -252,9 +253,9 @@ export default function InvoicePDF({ invoice, settings }: InvoicePDFProps) {
           <View style={styles.infoCol}>
             <Text style={styles.sectionLabel}>Invoice For:</Text>
             <Text style={styles.clientName}>{invoice.invoiceFor}</Text>
-            <Text style={styles.clientDetail}>{invoice.customerAddress || ''}</Text>
-            {invoice.customerPhone && (
-              <Text style={styles.clientDetail}>Telp: {invoice.customerPhone}</Text>
+            <Text style={styles.clientDetail}>{clientData?.address || ''}</Text>
+            {clientData?.phone && (
+              <Text style={styles.clientDetail}>Telp: {clientData.phone}</Text>
             )}
           </View>
           <View style={styles.infoCol}>

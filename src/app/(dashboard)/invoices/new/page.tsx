@@ -25,8 +25,6 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
     clientId: '',
     invoiceFor: '',
     payableTo: '',
-    customerAddress: '',
-    customerPhone: '',
     items: [],
     discountType: 'nominal',
     discountValue: 0,
@@ -192,11 +190,10 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
                     ...prev,
                     clientId: client.id,
                     invoiceFor: client.name,
-                    customerAddress: client.address || '',
-                    customerPhone: client.phone || '',
+
                   }))}
                   onCreateNew={(name) => {
-                    setFormData(prev => ({ ...prev, invoiceFor: name, clientId: '', customerAddress: '', customerPhone: '' }));
+                    setFormData(prev => ({ ...prev, invoiceFor: name, clientId: '' }));
                   }}
                 placeholder="Ketik atau cari nama client..."
                 />
@@ -212,7 +209,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
             </div>
             <div className="grid grid-cols-3 divide-x divide-gray-300 border-t border-gray-300">
               <div className="p-2">
-                <textarea value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} className="w-full text-sm border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent resize-none" placeholder={formData.clientId ? 'Alamat dari client (otomatis)' : 'Alamat Customer (opsional)'} rows={2} readOnly={!!formData.clientId} />
+                
               </div>
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Dropping</div>
