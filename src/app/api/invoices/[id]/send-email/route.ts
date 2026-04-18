@@ -4,6 +4,8 @@ import { getById, queryByField, create } from '@/lib/firestore';
 import { sendEmail } from '@/lib/email';
 import { generateInvoiceEmailHtml } from '@/lib/email-template';
 import { getTokenFromHeaders } from '@/lib/utils';
+import { getCached, setCache } from '@/lib/cache';
+import { serializeTimestamps } from '@/lib/firestore';
 
 export async function POST(
   request: NextRequest,
@@ -24,8 +26,12 @@ export async function POST(
 
     const items = await queryByField('invoiceItems', 'invoiceId', '==', id);
     
-    const settingsDoc = await db.collection('settings').doc('general').get();
-    const storeSettings = settingsDoc.exists ? settingsDoc.data() : null;
+    let storeSettings = getCached<any>('settings:general');
+    if (!storeSettings) {
+      const settingsDoc = await db.collection('settings').doc('general').get();
+      storeSettings = settingsDoc.exists ? serializeTimestamps({ id: settingsDoc.id, ...settingsDoc.data() }) : null;
+      if (storeSettings) setCache('settings:general', storeSettings);
+    }
 
     const clientList = await queryByField('clients', 'name', '==', (invoice as any).invoiceFor);
     const recipientEmail = clientList.length > 0 ? (clientList[0] as any).email : '';

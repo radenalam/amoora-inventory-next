@@ -3,6 +3,10 @@ import { db } from '@/lib/firebase';
 import { getById, queryByField } from '@/lib/firestore';
 import { getAuthUser } from '@/lib/auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { getCached, setCache } from '@/lib/cache';
+import { serializeTimestamps } from '@/lib/firestore';
+
+const SETTINGS_CACHE_KEY = 'settings:general';
 
 export async function GET(
   request: NextRequest,
@@ -18,8 +22,9 @@ export async function GET(
 
   const items = await queryByField('invoiceItems', 'invoiceId', '==', id);
   
-  const settingsDoc = await db.collection('settings').doc('general').get();
-  const settings: Record<string, any> = settingsDoc.exists ? (settingsDoc.data() as Record<string, any>) : { name: '', address: '', phone: '', email: '', signerName: '' };
+  // Fetch settings (cached)
+  const cached = getCached<Record<string, any>>(SETTINGS_CACHE_KEY);
+  const settings: Record<string, any> = cached || { name: '', address: '', phone: '', email: '', signerName: '' };
 
   const inv = invoice as any;
   const totalQty = items.reduce((s: number, i: any) => s + i.qty, 0);

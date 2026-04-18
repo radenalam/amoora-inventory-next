@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { snapshotToArray, queryByField } from '@/lib/firestore';
+import { getCached, setCache } from '@/lib/cache';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {

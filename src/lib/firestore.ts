@@ -2,7 +2,7 @@ import { db } from './firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 
 // Convert Firestore Timestamp to ISO string recursively
-function serializeTimestamps(obj: any): any {
+export function serializeTimestamps(obj: any): any {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'object' && obj._seconds !== undefined && obj._nanoseconds !== undefined) {
     return new Date(obj._seconds * 1000 + obj._nanoseconds / 1e6).toISOString();
