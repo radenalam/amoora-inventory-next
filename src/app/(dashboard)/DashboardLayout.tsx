@@ -11,12 +11,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, logout, fetchProducts, fetchInvoices, fetchSettings } = useStore();
+  const { user, logout, fetchProducts, fetchInvoices, fetchSettings, fetchClients } = useStore();
 
   useEffect(() => {
     const token = localStorage.getItem('amoora_token');
     if (token) {
       fetchProducts();
+      fetchClients();
       fetchInvoices();
       fetchSettings();
     }
