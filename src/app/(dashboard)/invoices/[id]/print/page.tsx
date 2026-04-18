@@ -20,11 +20,29 @@ export default function InvoicePrintPage() {
   const [generating, setGenerating] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string>('');
+  const [clientEmail, setClientEmail] = useState<string>('');
 
   useEffect(() => {
     fetchSettings();
     if (id) {
-      fetchInvoice(id).then((inv) => { setInvoice(inv); setLoading(false); });
+      fetchInvoice(id).then(async (inv) => {
+        setInvoice(inv);
+        setLoading(false);
+        // Fetch client email from clients collection
+        if (inv?.invoiceFor) {
+          try {
+            const h = { 'Authorization': `Bearer ${localStorage.getItem('amoora_token')}` };
+            const res = await fetch('/api/clients', { headers: h });
+            if (res.ok) {
+              const clients = await res.json();
+              const match = clients.find((cl: any) =>
+                cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
+              );
+              if (match?.email) setClientEmail(match.email);
+            }
+          } catch {}
+        }
+      });
     }
   }, [id]);
 
@@ -133,7 +151,7 @@ export default function InvoicePrintPage() {
             {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
             Print
           </button>
-          {invoice.customerEmail ? (
+          {clientEmail ? (
             <button onClick={handleSendEmail} disabled={sendingEmail} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
               {sendingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
               Kirim Email
