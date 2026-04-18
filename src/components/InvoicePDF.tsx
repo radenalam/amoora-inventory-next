@@ -8,6 +8,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from '@react-pdf/renderer';
 
 Font.register({
@@ -225,11 +226,16 @@ export default function InvoicePDF({ invoice, settings }: InvoicePDFProps) {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.companyName}>{settings.name || 'Amoora Couture'}</Text>
-            <Text style={styles.companyInfo}>{settings.address || ''}</Text>
-            <Text style={styles.companyInfo}>Telp: {settings.phone || ''}</Text>
-            <Text style={styles.companyInfo}>Email: {settings.email || ''}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+            {settings.logoUrl && (
+              <Image src={settings.logoUrl} style={{ width: 60, height: 60, objectFit: 'contain' }} />
+            )}
+            <View>
+              <Text style={styles.companyName}>{settings.name || 'Amoora Couture'}</Text>
+              <Text style={styles.companyInfo}>{settings.address || ''}</Text>
+              <Text style={styles.companyInfo}>Telp: {settings.phone || ''}</Text>
+              <Text style={styles.companyInfo}>Email: {settings.email || ''}</Text>
+            </View>
           </View>
           <View>
             <Text style={styles.invoiceTitle}>Invoice</Text>
@@ -341,7 +347,11 @@ export default function InvoicePDF({ invoice, settings }: InvoicePDFProps) {
           </View>
           <View style={styles.footerRight}>
             <Text style={{ fontSize: 9 }}>Hormat Kami,</Text>
-            <View style={styles.signatureLine} />
+            {settings.signatureUrl ? (
+              <Image src={settings.signatureUrl} style={{ width: 120, height: 50, objectFit: 'contain' }} />
+            ) : (
+              <View style={styles.signatureLine} />
+            )}
             <Text style={styles.signerName}>{settings.signerName || ''}</Text>
             <Text style={styles.signerCompany}>{settings.name || ''}</Text>
           </View>
