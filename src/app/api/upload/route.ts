@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 
 export async function POST(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
@@ -18,14 +16,7 @@ export async function POST(request: NextRequest) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
+  const base64 = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-  const ext = path.extname(file.name) || '.png';
-  const filename = `${type}-${Date.now()}${ext}`;
-  const dir = path.join(process.cwd(), 'public', 'uploads', type);
-
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), buffer);
-
-  const url = `/uploads/${type}/${filename}`;
-  return NextResponse.json({ url });
+  return NextResponse.json({ url: base64, type });
 }
