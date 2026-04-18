@@ -129,7 +129,7 @@ export default function InvoiceListPage() {
               <tbody className="divide-y divide-gray-100">
                 {invoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{invoice.invoiceNo}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900"><Link href={`/invoices/${invoice.id}/print`} className="hover:text-blue-600">{invoice.invoiceNo}</Link></td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{formatDate(invoice.date)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{invoice.invoiceFor}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency(invoice.total)}</td>

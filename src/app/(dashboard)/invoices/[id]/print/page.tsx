@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useStore, Invoice } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Printer, ArrowLeft, Edit2, Loader2, Download, Mail } from 'lucide-react';
+import { Printer, ArrowLeft, Edit2, Loader2, Download, Mail, Users } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { pdf } from '@react-pdf/renderer';
@@ -133,10 +133,17 @@ export default function InvoicePrintPage() {
             {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
             Print
           </button>
-          <button onClick={handleSendEmail} disabled={sendingEmail} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
-            {sendingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-            Kirim Email
-          </button>
+          {invoice.customerEmail ? (
+            <button onClick={handleSendEmail} disabled={sendingEmail} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
+              {sendingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+              Kirim Email
+            </button>
+          ) : (
+            <Link href="/clients" className="inline-flex items-center px-4 py-2 border border-amber-300 shadow-sm text-sm font-medium rounded-md text-amber-700 bg-amber-50 hover:bg-amber-100">
+              <Users className="w-4 h-4 mr-2" />
+              Lengkapi Email Client
+            </Link>
+          )}
         </div>
         {emailStatus && <p className="mt-2 text-sm text-center w-full">{emailStatus}</p>}
       </div>

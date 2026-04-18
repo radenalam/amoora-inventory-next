@@ -123,7 +123,7 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-gray-50">
                       {recentInvoices.map((invoice: any) => (
                         <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{invoice.invoiceNo}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900"><Link href={`/invoices/${invoice.id}/print`} className="hover:text-blue-600">{invoice.invoiceNo}</Link></td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{invoice.invoiceFor.split('\n')[0]}</td>
                           <td className="px-6 py-3 whitespace-nowrap">{statusBadge(invoice.status)}</td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{invoice.dueDate ? formatDate(invoice.dueDate) : '-'}</td>
