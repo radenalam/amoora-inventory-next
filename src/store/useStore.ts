@@ -200,7 +200,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const res = await fetch('/api/products', { headers: h });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      set({ products: data });
+      set({ products: data.data || data });
     } catch (err: any) {
       console.error('Fetch products error:', err);
     }
@@ -248,7 +248,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const res = await fetch(`/api/invoices${qs ? '?' + qs : ''}`, { headers: h });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      set({ invoices: data.invoices });
+      set({ invoices: data.data || data });
       return data;
     } catch (err: any) {
       console.error('Fetch invoices error:', err);
@@ -326,7 +326,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const res = await fetch('/api/clients', { headers: headers() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      set({ clients: data });
+      set({ clients: data.data || data });
     } catch (err) { console.error('Fetch clients error:', err); }
   },
 

@@ -10,3 +10,4 @@ service-account*.json
 # Drizzle
 drizzle/
 *.db
+.vercel
