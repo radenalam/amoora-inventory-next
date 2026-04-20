@@ -1,130 +1,125 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { snapshotToArray, create, queryByField, getOneByField, getById } from '@/lib/firestore';
+import { db } from '@/db';
+import { invoices, invoiceItems, clients } from '@/db/schema';
+import { eq, like, sql, desc } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const search = searchParams.get('search');
-  const page = Number(searchParams.get('page') || '1');
-  const limit = Number(searchParams.get('limit') || '20');
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '10');
+  const search = searchParams.get('search') || '';
+  const status = searchParams.get('status') || '';
+  const offset = (page - 1) * limit;
 
-  let query: FirebaseFirestore.Query = db.collection('invoices').orderBy('date', 'desc');
+  const conditions: any[] = [];
+  if (search) conditions.push(like(invoices.invoiceNo, `%${search}%`));
+  if (status) conditions.push(eq(invoices.status, status));
 
-  if (status && status !== 'all') {
-    query = query.where('status', '==', status);
-  }
+  const whereClause = conditions.length > 0 
+    ? conditions.length === 1 ? conditions[0] : sql`${conditions[0]} AND ${conditions[1]}`
+    : undefined;
 
-  // Firestore doesn't support LIKE — filter in-memory for search
-  const snapshot = await query.get();
-  let allInvoices = snapshotToArray(snapshot);
+  const [data, countResult] = await Promise.all([
+    db.select().from(invoices).where(whereClause).orderBy(desc(invoices.createdAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`count(*)::int` }).from(invoices).where(whereClause),
+  ]);
 
-  if (search) {
-    const s = search.toLowerCase();
-    allInvoices = allInvoices.filter((inv: any) =>
-      (inv.invoiceNo || '').toLowerCase().includes(s) ||
-      (inv.invoiceFor || '').toLowerCase().includes(s)
-    );
-  }
+  const total = countResult[0].count;
 
-  const total = allInvoices.length;
-  const totalPages = Math.ceil(total / limit);
-  const paginatedInvoices = allInvoices.slice((page - 1) * limit, page * limit);
+  // Get items for each invoice
+  const invoiceIds = data.map(inv => inv.id);
+  const allItems = invoiceIds.length > 0
+    ? await db.select().from(invoiceItems).where(sql`${invoiceItems.invoiceId} = ANY(${invoiceIds})`)
+    : [];
 
-  // Fetch items for these invoices
-  const invoicesWithItems = await Promise.all(
-    paginatedInvoices.map(async (inv: any) => {
-      const items = await queryByField('invoiceItems', 'invoiceId', '==', inv.id);
-      return { ...inv, items };
-    })
-  );
+  const result = data.map(inv => ({
+    ...inv,
+    date: inv.date?.toISOString(),
+    dueDate: inv.dueDate?.toISOString(),
+    createdAt: inv.createdAt?.toISOString(),
+    updatedAt: inv.updatedAt?.toISOString(),
+    items: allItems.filter(item => item.invoiceId === inv.id).map(item => ({
+      ...item,
+      createdAt: item.createdAt?.toISOString(),
+    })),
+  }));
 
   return NextResponse.json({
-    invoices: invoicesWithItems,
-    pagination: { page, limit, total, totalPages },
+    data: result,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 }
 
 export async function POST(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { items, discountType, discountValue, taxType, taxValue, shipping, downPayment, ...rest } = body;
+  const { items, discountType, discountValue, taxType, taxValue, shipping, downPayment, clientId, invoiceFor, ...rest } = body;
 
-  const calculatedItems = (items || []).map((item: any) => ({
-    productId: item.productId || null,
-    description: item.description,
-    qty: Number(item.qty),
-    unitPrice: Number(item.unitPrice),
-    total: Number(item.qty) * Number(item.unitPrice),
-  }));
-
-  const subtotal = calculatedItems.reduce((sum: number, item: any) => sum + item.total, 0);
-  const discountAmount = discountType === 'percent' ? subtotal * (discountValue / 100) : discountValue;
-  const afterDiscount = subtotal - discountAmount;
-  const taxAmount = taxType === 'percent' ? afterDiscount * (taxValue / 100) : taxValue;
-  const total = afterDiscount + taxAmount + (shipping || 0) - (downPayment || 0);
-
-  // If clientId provided, fetch client data
-  let clientData: Record<string, any> | null = null;
-  if (rest.clientId) {
-    clientData = await getById('clients', rest.clientId);
+  // Fetch client data if clientId provided
+  let clientName = invoiceFor || '';
+  if (clientId && !invoiceFor) {
+    const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+    if (client) clientName = client.name;
   }
 
-  // Auto-create client if invoiceFor is set but no clientId
-  if (rest.invoiceFor && !rest.clientId) {
-    const existingClient = await getOneByField('clients', 'name', '==', rest.invoiceFor);
-    if (existingClient) {
-      clientData = existingClient;
-      rest.clientId = existingClient.id;
+  // Auto-create client if invoiceFor provided but no clientId
+  let finalClientId = clientId || null;
+  if (!clientId && invoiceFor) {
+    const [existing] = await db.select().from(clients).where(eq(clients.name, invoiceFor)).limit(1);
+    if (existing) {
+      finalClientId = existing.id;
     } else {
-      const newClient = await create('clients', {
-        name: rest.invoiceFor,
-      });
-      clientData = newClient;
-      rest.clientId = newClient.id;
+      const [newClient] = await db.insert(clients).values({ name: invoiceFor }).returning();
+      finalClientId = newClient.id;
     }
   }
 
-  const invoice = await create('invoices', {
+  const subtotal = (items || []).reduce((s: number, item: any) => s + (Number(item.qty) * Number(item.unitPrice)), 0);
+  const discountAmount = discountType === 'percent' ? subtotal * (Number(discountValue) / 100) : Number(discountValue || 0);
+  const afterDiscount = subtotal - discountAmount;
+  const taxAmount = taxType === 'percent' ? afterDiscount * (Number(taxValue) / 100) : Number(taxValue || 0);
+  const total = afterDiscount + taxAmount + Number(shipping || 0) - Number(downPayment || 0);
+
+  const [invoice] = await db.insert(invoices).values({
     ...rest,
-    invoiceFor: clientData?.name || rest.invoiceFor,
+    clientId: finalClientId,
+    invoiceFor: clientName,
     date: new Date(rest.date),
     dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
-    subtotal,
+    subtotal: String(subtotal),
     discountType: discountType || 'nominal',
-    discountValue: discountValue || 0,
+    discountValue: String(discountValue || 0),
     taxType: taxType || 'nominal',
-    taxValue: taxValue || 0,
-    shipping: shipping || 0,
-    downPayment: downPayment || 0,
-    total,
-  });
+    taxValue: String(taxValue || 0),
+    shipping: String(shipping || 0),
+    downPayment: String(downPayment || 0),
+    total: String(total),
+  }).returning();
 
   // Create invoice items
-  if (calculatedItems.length > 0) {
-    const batch = db.batch();
-    for (const item of calculatedItems) {
-      const ref = db.collection('invoiceItems').doc();
-      batch.set(ref, {
-        ...item,
-        invoiceId: invoice.id,
-        createdAt: new Date(),
-      });
-    }
-    await batch.commit();
+  if (items && items.length > 0) {
+    const itemValues = items.map((item: any) => ({
+      invoiceId: invoice.id,
+      productId: item.productId || null,
+      description: item.description,
+      qty: String(Number(item.qty)),
+      unitPrice: String(Number(item.unitPrice)),
+      total: String(Number(item.qty) * Number(item.unitPrice)),
+    }));
+    await db.insert(invoiceItems).values(itemValues);
   }
 
-  const createdItems = await queryByField('invoiceItems', 'invoiceId', '==', invoice.id);
-
-  return NextResponse.json({ ...invoice, items: createdItems }, { status: 201 });
+  return NextResponse.json({
+    ...invoice,
+    date: invoice.date?.toISOString(),
+    dueDate: invoice.dueDate?.toISOString(),
+    createdAt: invoice.createdAt?.toISOString(),
+    updatedAt: invoice.updatedAt?.toISOString(),
+  }, { status: 201 });
 }

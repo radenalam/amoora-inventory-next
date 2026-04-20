@@ -1,51 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { snapshotToArray, queryByField } from '@/lib/firestore';
-import { getCached, setCache } from '@/lib/cache';
+import { NextResponse } from 'next/server';
+import { db } from '@/db';
+import { invoices, invoiceItems, clients, products } from '@/db/schema';
+import { sql, eq, and, gte, lte } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
-  const authUser = getAuthUser(request.headers);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function GET(request: Request) {
+  const authUser = getAuthUser(request.headers as any);
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const invoicesSnapshot = await db.collection('invoices').orderBy('date', 'asc').get();
-  const allInvoices = snapshotToArray(invoicesSnapshot);
-  const allItems = await queryByField('invoiceItems', 'invoiceId', 'in', allInvoices.map((i: any) => i.id));
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // For 'in' query with many IDs, fetch all items and filter
-  const itemsSnapshot = await db.collection('invoiceItems').get();
-  const allItemsFiltered = snapshotToArray(itemsSnapshot).filter((item: any) =>
-    allInvoices.some((inv: any) => inv.id === item.invoiceId)
-  );
-
-  const openInvoices = allInvoices.filter((i: any) => i.status === 'draft' || i.status === 'issued');
-  const paidInvoices = allInvoices.filter((i: any) => i.status === 'paid');
-  const pendingInvoices = allInvoices.filter((i: any) => i.status === 'issued');
-
-  const productSales: Record<string, number> = {};
-  allItemsFiltered.forEach((item: any) => {
-    if (item.description) {
-      productSales[item.description] = (productSales[item.description] || 0) + item.total;
-    }
-  });
-
-  const topProducts = Object.entries(productSales)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 4)
-    .map(([name, total]) => ({ name, total }));
+  const [totalInvoices] = await db.select({ count: sql<number>`count(*)::int` }).from(invoices);
+  const [totalRevenue] = await db.select({ total: sql<string>`COALESCE(SUM(${invoices.total}::numeric), 0)` }).from(invoices);
+  const [totalClients] = await db.select({ count: sql<number>`count(*)::int` }).from(clients);
+  const [totalProducts] = await db.select({ count: sql<number>`count(*)::int` }).from(products);
+  const [monthRevenue] = await db.select({ total: sql<string>`COALESCE(SUM(${invoices.total}::numeric), 0)` })
+    .from(invoices).where(gte(invoices.createdAt, startOfMonth));
+  const [pendingInvoices] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(invoices).where(eq(invoices.status, 'pending'));
 
   return NextResponse.json({
-    totalInvoices: allInvoices.length,
-    totalAmount: allInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
-    openCount: openInvoices.length,
-    openTotal: openInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
-    paidCount: paidInvoices.length,
-    paidTotal: paidInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
-    pendingCount: pendingInvoices.length,
-    pendingTotal: pendingInvoices.reduce((s: number, i: any) => s + (i.total || 0), 0),
-    topProducts,
-    recentInvoices: allInvoices.slice(-4).reverse(),
+    totalInvoices: totalInvoices.count,
+    totalRevenue: totalRevenue.total,
+    totalClients: totalClients.count,
+    totalProducts: totalProducts.count,
+    monthRevenue: monthRevenue.total,
+    pendingInvoices: pendingInvoices.count,
   });
 }
