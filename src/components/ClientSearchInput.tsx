@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, Mail, Phone, Plus } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Search, X, Mail, Phone, Plus, Loader2 } from 'lucide-react';
 
 interface ClientOption {
   id: string;
@@ -12,7 +12,6 @@ interface ClientOption {
 }
 
 interface ClientSearchInputProps {
-  clients: ClientOption[];
   value: string | undefined;
   onChange: (value: string) => void;
   onSelect: (client: ClientOption) => void;
@@ -20,22 +19,47 @@ interface ClientSearchInputProps {
   placeholder?: string;
 }
 
-export default function ClientSearchInput({ clients, value, onChange, onSelect, onCreateNew, placeholder = 'Ketik nama client...' }: ClientSearchInputProps) {
+export default function ClientSearchInput({ value, onChange, onSelect, onCreateNew, placeholder = 'Ketik nama client...' }: ClientSearchInputProps) {
   const [query, setQuery] = useState('');
+  const [results, setResults] = useState<ClientOption[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchTimer = useRef<NodeJS.Timeout | null>(null);
+  const isComposing = useRef(false);
 
-  const filtered = query.length > 0
-    ? clients.filter(c =>
-        c.name.toLowerCase().includes(query.toLowerCase()) ||
-        c.email.toLowerCase().includes(query.toLowerCase()) ||
-        c.phone.includes(query)
-      ).slice(0, 8)
-    : [];
+  const searchClients = useCallback(async (q: string) => {
+    if (q.length === 0) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('amoora_token');
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=8`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      setResults(data.data || []);
+    } catch {
+      setResults([]);
+    }
+    setLoading(false);
+  }, []);
 
-  const isNew = query.length > 0 && !clients.some(c => c.name.toLowerCase() === query.toLowerCase());
+  useEffect(() => {
+    if (isComposing.current) return;
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (query.length === 0) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    searchTimer.current = setTimeout(() => searchClients(query), 300);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [query, searchClients]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -49,18 +73,21 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
 
   useEffect(() => { setSelectedIndex(-1); }, [query]);
 
+  const isNew = query.length > 0 && !results.some(c => c.name.toLowerCase() === query.toLowerCase()) && !loading;
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(i => Math.min(i + 1, filtered.length));
+      const max = results.length + (isNew ? 1 : 0);
+      setSelectedIndex(i => Math.min(i + 1, max - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex(i => Math.max(i - 1, -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (selectedIndex >= 0 && filtered[selectedIndex]) {
-        handleSelect(filtered[selectedIndex]);
-      } else if (isNew && selectedIndex === filtered.length) {
+      if (selectedIndex >= 0 && selectedIndex < results.length) {
+        handleSelect(results[selectedIndex]);
+      } else if (isNew && selectedIndex === results.length) {
         handleCreateNew();
       }
     } else if (e.key === 'Escape') {
@@ -71,6 +98,7 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
   const handleSelect = (client: ClientOption) => {
     onChange(client.name);
     setQuery('');
+    setResults([]);
     setIsOpen(false);
     onSelect(client);
   };
@@ -79,12 +107,14 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
     if (!query.trim()) return;
     onCreateNew(query.trim());
     setQuery('');
+    setResults([]);
     setIsOpen(false);
   };
 
   const handleClear = () => {
     onChange('');
     setQuery('');
+    setResults([]);
     onSelect({ id: '', name: '', email: '', phone: '', address: '' });
     inputRef.current?.focus();
   };
@@ -101,6 +131,13 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
             setQuery(e.target.value);
             setIsOpen(true);
           }}
+          onCompositionStart={() => { isComposing.current = true; }}
+          onCompositionEnd={(e) => {
+            isComposing.current = false;
+            const v = (e.target as HTMLInputElement).value;
+            setQuery(v);
+            setIsOpen(true);
+          }}
           onFocus={() => { if (query || value) setIsOpen(true); }}
           onKeyDown={handleKeyDown}
           className="w-full text-sm border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none bg-transparent pr-8"
@@ -113,20 +150,23 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          <Search className="w-3.5 h-3.5 text-gray-400" />
+          {loading ? <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" /> : <Search className="w-3.5 h-3.5 text-gray-400" />}
         </div>
       </div>
 
-      {isOpen && (filtered.length > 0 || isNew) && (
+      {isOpen && (results.length > 0 || isNew || loading) && (
         <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-          {filtered.map((client, index) => (
+          {loading && results.length === 0 && (
+            <div className="px-3 py-4 text-center text-sm text-gray-400">Mencari...</div>
+          )}
+          {results.map((client, index) => (
             <button
               key={client.id}
               type="button"
               onClick={() => handleSelect(client)}
               className={`w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors flex flex-col gap-0.5 ${
                 index === selectedIndex ? 'bg-blue-50' : ''
-              } ${index !== filtered.length - 1 || isNew ? 'border-b border-gray-50' : ''}`}
+              } ${index !== results.length - 1 || isNew ? 'border-b border-gray-50' : ''}`}
             >
               <span className="text-sm font-medium text-gray-900">{client.name}</span>
               <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -140,7 +180,7 @@ export default function ClientSearchInput({ clients, value, onChange, onSelect, 
               type="button"
               onClick={handleCreateNew}
               className={`w-full text-left px-3 py-2 hover:bg-green-50 transition-colors flex items-center gap-2 text-green-700 ${
-                selectedIndex === filtered.length ? 'bg-green-50' : ''
+                selectedIndex === results.length ? 'bg-green-50' : ''
               }`}
             >
               <Plus className="w-4 h-4" />

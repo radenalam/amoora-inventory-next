@@ -194,7 +194,6 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
               <div className="p-2">
                 <div className="text-sm font-bold text-gray-900 mb-1">Invoice for</div>
                 <ClientSearchInput
-                  clients={clients.map((c: any) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, address: c.address }))}
                   value={formData.invoiceFor}
                   onChange={(val) => setFormData(prev => ({ ...prev, invoiceFor: val }))}
                   onSelect={(client) => setFormData(prev => ({
