@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { invoices, invoiceItems, clients } from '@/db/schema';
-import { eq, like, sql, desc } from 'drizzle-orm';
+import { eq, like, sql, desc, inArray } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   // Get items for each invoice
   const invoiceIds = data.map(inv => inv.id);
   const allItems = invoiceIds.length > 0
-    ? await db.select().from(invoiceItems).where(sql`${invoiceItems.invoiceId} = ANY(${invoiceIds})`)
+    ? await db.select().from(invoiceItems).where(inArray(invoiceItems.invoiceId, invoiceIds))
     : [];
 
   const result = data.map(inv => ({
