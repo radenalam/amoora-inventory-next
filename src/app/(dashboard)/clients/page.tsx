@@ -90,16 +90,19 @@ export default function ClientsPage() {
         </div>
 
         {loadingData ? (
-          <div className="p-6 space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex gap-4">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-4 w-48" />
+          <div className="p-6 space-y-3">
+            <div className="grid grid-cols-5 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <React.Fragment key={i}>
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-48" />
+                  <div className="flex justify-end"><Skeleton className="h-8 w-20 rounded-lg" /></div>
+                </React.Fragment>
                 <div className="flex-1" />
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
