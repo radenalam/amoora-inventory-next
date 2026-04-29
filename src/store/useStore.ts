@@ -47,6 +47,7 @@ export interface Invoice {
   status: InvoiceStatus;
   createdAt?: string;
   updatedAt?: string;
+  client?: any;
 }
 
 export interface BusinessSettings {
