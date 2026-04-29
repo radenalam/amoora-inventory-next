@@ -4,7 +4,7 @@ export function Skeleton({ className = '' }: { className?: string }) {
   );
 }
 
-export function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: number }) {
+export function TableSkeleton({ cols = 5 }: { cols?: number }) {
   return (
     <div className="p-6 space-y-3">
       <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
@@ -12,7 +12,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: nu
           <Skeleton key={i} className="h-4" />
         ))}
       </div>
-      {Array.from({ length: rows }).map((_, i) => (
+      {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {Array.from({ length: cols }).map((_, j) => (
             <Skeleton key={j} className="h-4" />
