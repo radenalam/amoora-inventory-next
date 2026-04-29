@@ -29,14 +29,17 @@ export default function InvoicePrintPage() {
       fetchInvoice(id).then(async (inv) => {
         setInvoice(inv);
         setLoading(false);
-        // Fetch client email from clients collection
-        if (inv?.invoiceFor) {
+        // Use client data from invoice response
+        if (inv?.client) {
+          setClientEmail(inv.client.email || '');
+          setClientData(inv.client);
+        } else if (inv?.invoiceFor) {
           try {
             const h = { 'Authorization': `Bearer ${localStorage.getItem('amoora_token')}` };
-            const res = await fetch('/api/clients', { headers: h });
+            const res = await fetch(`/api/clients?search=${encodeURIComponent(inv.invoiceFor)}&limit=1`, { headers: h });
             if (res.ok) {
-              const clients = await res.json();
-              const match = clients.find((cl: any) =>
+              const result = await res.json();
+              const match = (result.data || []).find((cl: any) =>
                 cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
               );
               if (match?.email) { setClientEmail(match.email); setClientData(match); }
