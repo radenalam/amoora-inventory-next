@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { invoices, invoiceItems, clients } from '@/db/schema';
-import { eq, like, sql, desc, inArray } from 'drizzle-orm';
+import { eq, ilike, sql, desc, inArray } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const offset = (page - 1) * limit;
 
   const conditions: any[] = [];
-  if (search) conditions.push(like(invoices.invoiceNo, `%${search}%`));
+  if (search) conditions.push(ilike(invoices.invoiceNo, `%${search}%`));
   if (status) conditions.push(eq(invoices.status, status));
 
   const whereClause = conditions.length > 0 

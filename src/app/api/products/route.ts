@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { products } from '@/db/schema';
-import { eq, like, sql, desc } from 'drizzle-orm';
+import { eq, ilike, sql, desc } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search') || '';
   const offset = (page - 1) * limit;
 
-  const conditions = search ? like(products.name, `%${search}%`) : undefined;
+  const conditions = search ? ilike(products.name, `%${search}%`) : undefined;
 
   const [data, countResult] = await Promise.all([
     db.select().from(products).where(conditions).orderBy(desc(products.createdAt)).limit(limit).offset(offset),
