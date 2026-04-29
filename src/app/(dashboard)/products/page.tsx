@@ -103,7 +103,6 @@ export default function ProductsPage() {
                   <Skeleton className="h-4 w-16" />
                   <div className="flex justify-end"><Skeleton className="h-8 w-20 rounded-lg" /></div>
                 </React.Fragment>
-                <div className="flex-1" />
               ))}
             </div>
           </div>

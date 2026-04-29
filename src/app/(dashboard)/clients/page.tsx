@@ -100,7 +100,6 @@ export default function ClientsPage() {
                   <Skeleton className="h-4 w-48" />
                   <div className="flex justify-end"><Skeleton className="h-8 w-20 rounded-lg" /></div>
                 </React.Fragment>
-                <div className="flex-1" />
               ))}
             </div>
           </div>
