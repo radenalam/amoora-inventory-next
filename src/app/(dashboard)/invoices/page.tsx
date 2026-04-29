@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Plus, Search, Eye, Edit2, Trash2, FileText, Mail, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/components/ToastProvider';
-import { Skeleton, EmptyState, ConfirmDialog } from '@/components/UI';
+import { Skeleton, EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
 
 export default function InvoiceListPage() {
   const { invoices, fetchInvoices, deleteInvoice } = useStore();
@@ -90,20 +90,7 @@ export default function InvoiceListPage() {
         </div>
 
         {loadingData ? (
-          <div className="p-6 space-y-3">
-            <div className="grid grid-cols-6 gap-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <React.Fragment key={i}>
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-4 w-24 hidden sm:block" />
-                  <Skeleton className="h-4 w-36" />
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <div className="flex justify-end"><Skeleton className="h-8 w-24 rounded-lg" /></div>
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
+          <TableSkeleton rows={4} cols={6} />
         ) : invoices.length === 0 ? (
           <EmptyState
             icon={FileText}

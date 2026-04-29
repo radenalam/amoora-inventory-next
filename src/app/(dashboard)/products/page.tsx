@@ -5,7 +5,7 @@ import { useStore, Product } from '@/store/useStore';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Edit2, Trash2, X, Loader2, Package, Search } from 'lucide-react';
 import { useToast } from '@/components/ToastProvider';
-import { Skeleton, EmptyState, ConfirmDialog } from '@/components/UI';
+import { Skeleton, EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
 
 export default function ProductsPage() {
   const { products, fetchProducts, addProduct, updateProduct, deleteProduct } = useStore();
@@ -92,20 +92,7 @@ export default function ProductsPage() {
         </div>
 
         {loadingData ? (
-          <div className="p-6 space-y-3">
-            <div className="grid grid-cols-6 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <React.Fragment key={i}>
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-4 w-16" />
-                  <div className="flex justify-end"><Skeleton className="h-8 w-20 rounded-lg" /></div>
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
+          <TableSkeleton rows={4} cols={6} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Package}

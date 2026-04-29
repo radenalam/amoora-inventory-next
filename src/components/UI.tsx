@@ -6,16 +6,16 @@ export function Skeleton({ className = '' }: { className?: string }) {
 
 export function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: number }) {
   return (
-    <div className="space-y-3">
-      <div className="flex gap-4">
+    <div className="p-6 space-y-3">
+      <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {Array.from({ length: cols }).map((_, i) => (
-          <Skeleton key={i} className="h-4 flex-1" />
+          <Skeleton key={i} className="h-4" />
         ))}
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4 py-2">
+        <div key={i} className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {Array.from({ length: cols }).map((_, j) => (
-            <Skeleton key={j} className="h-4 flex-1" />
+            <Skeleton key={j} className="h-4" />
           ))}
         </div>
       ))}
