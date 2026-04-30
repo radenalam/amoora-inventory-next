@@ -8,7 +8,8 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { pdf } from '@react-pdf/renderer';
 import InvoicePDFDocument from '@/components/InvoicePDF';
-import api from '@/lib/api';
+import { listClients } from '@/services/clients';
+import { sendInvoiceEmail } from '@/services/invoices';
 
 export default function InvoicePrintPage() {
   const params = useParams();
@@ -36,8 +37,8 @@ export default function InvoicePrintPage() {
           setClientData(inv.client);
         } else if (inv?.invoiceFor) {
           try {
-            const result = await api.get(`/api/clients?search=${encodeURIComponent(inv.invoiceFor)}&limit=1`);
-            const match = (result.data?.data || []).find((cl: any) =>
+            const { items } = await listClients({ search: inv.invoiceFor, limit: 1 });
+            const match = items.find((cl) =>
               cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
             );
             if (match?.email) { setClientEmail(match.email); setClientData(match); }
@@ -94,8 +95,8 @@ export default function InvoicePrintPage() {
     setSendingEmail(true);
     setEmailStatus('');
     try {
-      const { data } = await api.post(`/api/invoices/${invoice.id}/send-email`);
-      setEmailStatus(`✅ Email dikirim ke ${data.recipient}`);
+      const result = await sendInvoiceEmail(invoice.id);
+      setEmailStatus(`✅ Email dikirim ke ${result.recipient}`);
     } catch (err: any) {
       setEmailStatus(`❌ ${err.response?.data?.error || 'Gagal mengirim email'}`);
       setEmailStatus('❌ Gagal mengirim email');

@@ -2,34 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import api from '@/lib/api';
 import { FileText, CheckCircle, Clock, Plus, Package, Users, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StatCardsSkeleton, Skeleton } from '@/components/UI';
-
-interface Stats {
-  openCount: number;
-  openTotal: number;
-  paidCount: number;
-  paidTotal: number;
-  pendingCount: number;
-  pendingTotal: number;
-  totalCount: number;
-  totalAmount: number;
-  monthRevenue: number;
-  recentInvoices: any[];
-  topProducts: any[];
-  monthlyRevenue: { name: string; revenue: number }[];
-}
+import { getStats, type DashboardStats } from '@/services/dashboard';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/api/dashboard/stats')
-      .then(({ data }) => setStats(data))
+    getStats()
+      .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);

@@ -1,7 +1,12 @@
 'use client';
 
 import { create } from 'zustand';
-import api from '@/lib/api';
+import * as authService from '@/services/auth';
+import * as clientService from '@/services/clients';
+import * as productService from '@/services/products';
+import * as invoiceService from '@/services/invoices';
+import * as settingsService from '@/services/settings';
+import * as uploadService from '@/services/upload';
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
 
@@ -132,7 +137,7 @@ export const useStore = create<AppState>()((set, get) => ({
   login: async (email, password) => {
     set({ loading: true, error: null });
     try {
-      const { data } = await api.post('/api/auth', { action: 'login', email, password });
+      const data = await authService.login(email, password);
       localStorage.setItem('amoora_token', data.token);
       localStorage.setItem('amoora_user', JSON.stringify(data.user));
       set({ isAuthenticated: true, user: data.user, loading: false });
@@ -145,7 +150,7 @@ export const useStore = create<AppState>()((set, get) => ({
   register: async (name, email, password) => {
     set({ loading: true, error: null });
     try {
-      const { data } = await api.post('/api/auth', { action: 'register', name, email, password });
+      const data = await authService.register(name, email, password);
       localStorage.setItem('amoora_token', data.token);
       localStorage.setItem('amoora_user', JSON.stringify(data.user));
       set({ isAuthenticated: true, user: data.user, loading: false });
@@ -173,8 +178,8 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchProducts: async () => {
     try {
-      const { data } = await api.get('/api/products');
-      set({ products: data.data || data });
+      const { items } = await productService.listProducts();
+      set({ products: items });
     } catch (err: any) {
       if (err.response?.status === 401) return;
       console.error('Fetch products error:', err);
@@ -182,29 +187,25 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   addProduct: async (product) => {
-    const { data } = await api.post('/api/products', product);
+    const data = await productService.createProduct(product);
     set((s) => ({ products: [data, ...s.products] }));
   },
 
   updateProduct: async (id, product) => {
-    const { data } = await api.put(`/api/products/${id}`, product);
+    const data = await productService.updateProduct(id, product);
     set((s) => ({ products: s.products.map((p) => (p.id === id ? data : p)) }));
   },
 
   deleteProduct: async (id) => {
-    await api.delete(`/api/products/${id}`);
+    await productService.deleteProduct(id);
     set((s) => ({ products: s.products.filter((p) => p.id !== id) }));
   },
 
   fetchInvoices: async (params) => {
     try {
-      const query = new URLSearchParams();
-      if (params?.status) query.set('status', params.status);
-      if (params?.search) query.set('search', params.search);
-      const qs = query.toString();
-      const { data } = await api.get(`/api/invoices${qs ? '?' + qs : ''}`);
-      set({ invoices: data.data || data });
-      return data;
+      const { items, pagination } = await invoiceService.listInvoices(params);
+      set({ invoices: items });
+      return { items, pagination };
     } catch (err: any) {
       if (err.response?.status === 401) return;
       console.error('Fetch invoices error:', err);
@@ -213,31 +214,30 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchInvoice: async (id) => {
     try {
-      const { data } = await api.get(`/api/invoices/${id}`);
-      return data;
+      return await invoiceService.getInvoice(id);
     } catch {
       return null;
     }
   },
 
   addInvoice: async (invoice) => {
-    const { data } = await api.post('/api/invoices', invoice);
+    const data = await invoiceService.createInvoice(invoice);
     set((s) => ({ invoices: [data, ...s.invoices] }));
   },
 
   updateInvoice: async (id, invoice) => {
-    const { data } = await api.put(`/api/invoices/${id}`, invoice);
+    const data = await invoiceService.updateInvoice(id, invoice);
     set((s) => ({ invoices: s.invoices.map((i) => (i.id === id ? data : i)) }));
   },
 
   deleteInvoice: async (id) => {
-    await api.delete(`/api/invoices/${id}`);
+    await invoiceService.deleteInvoice(id);
     set((s) => ({ invoices: s.invoices.filter((i) => i.id !== id) }));
   },
 
   fetchSettings: async () => {
     try {
-      const { data } = await api.get('/api/settings');
+      const data = await settingsService.getSettings();
       set({ settings: data });
     } catch (err) {
       console.error('Fetch settings error:', err);
@@ -245,7 +245,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   updateSettings: async (settings) => {
-    const { data } = await api.put('/api/settings', settings);
+    const data = await settingsService.updateSettings(settings);
     set({ settings: data });
   },
 
@@ -253,8 +253,8 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchClients: async () => {
     try {
-      const { data } = await api.get('/api/clients');
-      set({ clients: data.data || data });
+      const { items } = await clientService.listClients();
+      set({ clients: items });
     } catch (err: any) {
       if (err.response?.status === 401) return;
       console.error('Fetch clients error:', err);
@@ -262,32 +262,25 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   addClient: async (client) => {
-    const { data } = await api.post('/api/clients', client);
+    const data = await clientService.createClient(client);
     set((s) => ({ clients: [data, ...s.clients] }));
   },
 
   updateClient: async (id, client) => {
-    const { data } = await api.put(`/api/clients/${id}`, client);
+    const data = await clientService.updateClient(id, client);
     set((s) => ({ clients: s.clients.map((c) => (c.id === id ? data : c)) }));
   },
 
   deleteClient: async (id) => {
-    await api.delete(`/api/clients/${id}`);
+    await clientService.deleteClient(id);
     set((s) => ({ clients: s.clients.filter((c) => c.id !== id) }));
   },
 
   fetchNextInvoiceNo: async () => {
-    const { data } = await api.get('/api/next-invoice-number');
-    return data.invoiceNo;
+    return await invoiceService.getNextInvoiceNo();
   },
 
   uploadFile: async (file, type) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
-    const { data } = await api.post('/api/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return data.url;
+    return await uploadService.uploadFile(file, type);
   },
 }));

@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils';
 import ClientSearchInput from '@/components/ClientSearchInput';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
-import api from '@/lib/api';
+import { createClient } from '@/services/clients';
 
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
@@ -131,7 +131,7 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
       let clientId = formData.clientId;
       // If new client, create it first via API to get the ID
       if (newClient && !clientId) {
-        const { data: created } = await api.post('/api/clients', newClient);
+        const created = await createClient(newClient);
         clientId = created.id;
       }
       const finalInvoice = { ...formData, clientId, subtotal, total };

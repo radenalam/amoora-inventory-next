@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, Mail, Phone, Plus, Loader2 } from 'lucide-react';
-import api from '@/lib/api';
+import { listClients } from '@/services/clients';
 
 interface ClientOption {
   id: string;
@@ -38,8 +38,8 @@ export default function ClientSearchInput({ value, onChange, onSelect, onCreateN
     }
     setLoading(true);
     try {
-      const { data } = await api.get(`/api/clients?search=${encodeURIComponent(q)}&limit=8`);
-      setResults(data.data || []);
+      const { items } = await listClients({ search: q, limit: 8 });
+      setResults(items);
     } catch {
       setResults([]);
     }
