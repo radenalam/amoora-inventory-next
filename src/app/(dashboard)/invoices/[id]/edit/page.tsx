@@ -68,6 +68,9 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
     if (field === 'qty' || field === 'unitPrice') {
       newItems[index].total = newItems[index].qty * newItems[index].unitPrice;
     }
+    if (field === 'unitPrice') {
+      delete newItems[index].productId;
+    }
     if (field === 'productId' && value) {
       const product = products.find(p => p.id === value);
       if (product) {
