@@ -14,8 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, logout, fetchProducts, fetchInvoices, fetchSettings } = useStore();
 
   useEffect(() => {
-    const token = localStorage.getItem('amoora_token');
-    if (token) {
+    if (user) {
       fetchProducts();
       fetchInvoices();
       fetchSettings();

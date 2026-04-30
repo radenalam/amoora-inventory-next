@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { pdf } from '@react-pdf/renderer';
 import InvoicePDFDocument from '@/components/InvoicePDF';
+import api from '@/lib/api';
 
 export default function InvoicePrintPage() {
   const params = useParams();
@@ -35,15 +36,11 @@ export default function InvoicePrintPage() {
           setClientData(inv.client);
         } else if (inv?.invoiceFor) {
           try {
-            const h = { 'Authorization': `Bearer ${localStorage.getItem('amoora_token')}` };
-            const res = await fetch(`/api/clients?search=${encodeURIComponent(inv.invoiceFor)}&limit=1`, { headers: h });
-            if (res.ok) {
-              const result = await res.json();
-              const match = (result.data || []).find((cl: any) =>
-                cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
-              );
-              if (match?.email) { setClientEmail(match.email); setClientData(match); }
-            }
+            const result = await api.get(`/api/clients?search=${encodeURIComponent(inv.invoiceFor)}&limit=1`);
+            const match = (result.data?.data || []).find((cl: any) =>
+              cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
+            );
+            if (match?.email) { setClientEmail(match.email); setClientData(match); }
           } catch {}
         }
       });
@@ -97,17 +94,10 @@ export default function InvoicePrintPage() {
     setSendingEmail(true);
     setEmailStatus('');
     try {
-      const res = await fetch(`/api/invoices/${invoice.id}/send-email`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('amoora_token')}` },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setEmailStatus(`✅ Email dikirim ke ${data.recipient}`);
-      } else {
-        setEmailStatus(`❌ ${data.error}`);
-      }
-    } catch {
+      const { data } = await api.post(`/api/invoices/${invoice.id}/send-email`);
+      setEmailStatus(`✅ Email dikirim ke ${data.recipient}`);
+    } catch (err: any) {
+      setEmailStatus(`❌ ${err.response?.data?.error || 'Gagal mengirim email'}`);
       setEmailStatus('❌ Gagal mengirim email');
     }
     setSendingEmail(false);

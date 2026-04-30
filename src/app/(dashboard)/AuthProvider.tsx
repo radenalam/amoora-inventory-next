@@ -2,15 +2,36 @@
 
 import { useStore } from '@/store/useStore';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
+
+function useIsAuthenticated() {
+  const store = useStore;
+
+  const token = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener('storage', cb);
+      return () => window.removeEventListener('storage', cb);
+    },
+    () => localStorage.getItem('amoora_token'),
+    () => null,
+  );
+
+  const isAuthenticated = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.getState().isAuthenticated,
+    () => false,
+  );
+
+  return !!token && isAuthenticated;
+}
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, checkAuth } = useStore();
   const router = useRouter();
   const pathname = usePathname();
+  const isAuthenticated = useIsAuthenticated();
 
   useEffect(() => {
-    checkAuth();
+    useStore.getState().checkAuth();
   }, []);
 
   useEffect(() => {

@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/utils';
 import ClientSearchInput from '@/components/ClientSearchInput';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import api from '@/lib/api';
 
 export default function InvoiceFormPage({ params }: { params: Promise<{ id?: string }> }) {
   const { id } = React.use(params);
@@ -130,12 +131,8 @@ export default function InvoiceFormPage({ params }: { params: Promise<{ id?: str
       let clientId = formData.clientId;
       // If new client, create it first via API to get the ID
       if (newClient && !clientId) {
-        const h = { 'Authorization': `Bearer ${localStorage.getItem('amoora_token')}` };
-        const res = await fetch('/api/clients', { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(newClient) });
-        if (res.ok) {
-          const created = await res.json();
-          clientId = created.id;
-        }
+        const { data: created } = await api.post('/api/clients', newClient);
+        clientId = created.id;
       }
       const finalInvoice = { ...formData, clientId, subtotal, total };
       if (isEdit && id) await updateInvoice(id, finalInvoice);

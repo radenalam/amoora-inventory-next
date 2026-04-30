@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, Mail, Phone, Plus, Loader2 } from 'lucide-react';
+import api from '@/lib/api';
 
 interface ClientOption {
   id: string;
@@ -37,11 +38,7 @@ export default function ClientSearchInput({ value, onChange, onSelect, onCreateN
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem('amoora_token');
-      const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=8`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = await res.json();
+      const { data } = await api.get(`/api/clients?search=${encodeURIComponent(q)}&limit=8`);
       setResults(data.data || []);
     } catch {
       setResults([]);

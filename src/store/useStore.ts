@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import api from '@/lib/api';
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
 
@@ -73,18 +74,6 @@ export interface Client {
   updatedAt?: string;
 }
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('amoora_token');
-}
-
-function headers(): Record<string, string> {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  const t = getToken();
-  if (t) h['Authorization'] = `Bearer ${t}`;
-  return h;
-}
-
 interface AppState {
   isAuthenticated: boolean;
   user: { id: string; name: string; email: string } | null;
@@ -143,18 +132,12 @@ export const useStore = create<AppState>()((set, get) => ({
   login: async (email, password) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login gagal');
+      const { data } = await api.post('/api/auth', { action: 'login', email, password });
       localStorage.setItem('amoora_token', data.token);
       localStorage.setItem('amoora_user', JSON.stringify(data.user));
       set({ isAuthenticated: true, user: data.user, loading: false });
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ error: err.response?.data?.error || err.message || 'Login gagal', loading: false });
       throw err;
     }
   },
@@ -162,18 +145,12 @@ export const useStore = create<AppState>()((set, get) => ({
   register: async (name, email, password) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register', name, email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registrasi gagal');
+      const { data } = await api.post('/api/auth', { action: 'register', name, email, password });
       localStorage.setItem('amoora_token', data.token);
       localStorage.setItem('amoora_user', JSON.stringify(data.user));
       set({ isAuthenticated: true, user: data.user, loading: false });
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ error: err.response?.data?.error || err.message || 'Registrasi gagal', loading: false });
       throw err;
     }
   },
@@ -196,71 +173,47 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchProducts: async () => {
     try {
-      const h = headers();
-      if (!h['Authorization']) return;
-      const res = await fetch('/api/products', { headers: h });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const { data } = await api.get('/api/products');
       set({ products: data.data || data });
     } catch (err: any) {
+      if (err.response?.status === 401) return;
       console.error('Fetch products error:', err);
     }
   },
 
   addProduct: async (product) => {
-    const res = await fetch('/api/products', {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify(product),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.post('/api/products', product);
     set((s) => ({ products: [data, ...s.products] }));
   },
 
   updateProduct: async (id, product) => {
-    const res = await fetch(`/api/products/${id}`, {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify(product),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.put(`/api/products/${id}`, product);
     set((s) => ({ products: s.products.map((p) => (p.id === id ? data : p)) }));
   },
 
   deleteProduct: async (id) => {
-    const res = await fetch(`/api/products/${id}`, {
-      method: 'DELETE',
-      headers: headers(),
-    });
-    if (!res.ok) throw new Error('Gagal menghapus produk');
+    await api.delete(`/api/products/${id}`);
     set((s) => ({ products: s.products.filter((p) => p.id !== id) }));
   },
 
   fetchInvoices: async (params) => {
     try {
-      const h = headers();
-      if (!h['Authorization']) return;
       const query = new URLSearchParams();
       if (params?.status) query.set('status', params.status);
       if (params?.search) query.set('search', params.search);
       const qs = query.toString();
-      const res = await fetch(`/api/invoices${qs ? '?' + qs : ''}`, { headers: h });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal memuat invoice');
+      const { data } = await api.get(`/api/invoices${qs ? '?' + qs : ''}`);
       set({ invoices: data.data || data });
       return data;
     } catch (err: any) {
+      if (err.response?.status === 401) return;
       console.error('Fetch invoices error:', err);
     }
   },
 
   fetchInvoice: async (id) => {
     try {
-      const res = await fetch(`/api/invoices/${id}`, { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) return null;
+      const { data } = await api.get(`/api/invoices/${id}`);
       return data;
     } catch {
       return null;
@@ -268,41 +221,23 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   addInvoice: async (invoice) => {
-    const res = await fetch('/api/invoices', {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify(invoice),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.post('/api/invoices', invoice);
     set((s) => ({ invoices: [data, ...s.invoices] }));
   },
 
   updateInvoice: async (id, invoice) => {
-    const res = await fetch(`/api/invoices/${id}`, {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify(invoice),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.put(`/api/invoices/${id}`, invoice);
     set((s) => ({ invoices: s.invoices.map((i) => (i.id === id ? data : i)) }));
   },
 
   deleteInvoice: async (id) => {
-    const res = await fetch(`/api/invoices/${id}`, {
-      method: 'DELETE',
-      headers: headers(),
-    });
-    if (!res.ok) throw new Error('Gagal menghapus invoice');
+    await api.delete(`/api/invoices/${id}`);
     set((s) => ({ invoices: s.invoices.filter((i) => i.id !== id) }));
   },
 
   fetchSettings: async () => {
     try {
-      const res = await fetch('/api/settings', { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const { data } = await api.get('/api/settings');
       set({ settings: data });
     } catch (err) {
       console.error('Fetch settings error:', err);
@@ -310,13 +245,7 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   updateSettings: async (settings) => {
-    const res = await fetch('/api/settings', {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify(settings),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.put('/api/settings', settings);
     set({ settings: data });
   },
 
@@ -324,36 +253,31 @@ export const useStore = create<AppState>()((set, get) => ({
 
   fetchClients: async () => {
     try {
-      const res = await fetch('/api/clients', { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const { data } = await api.get('/api/clients');
       set({ clients: data.data || data });
-    } catch (err) { console.error('Fetch clients error:', err); }
+    } catch (err: any) {
+      if (err.response?.status === 401) return;
+      console.error('Fetch clients error:', err);
+    }
   },
 
   addClient: async (client) => {
-    const res = await fetch('/api/clients', { method: 'POST', headers: headers(), body: JSON.stringify(client) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.post('/api/clients', client);
     set((s) => ({ clients: [data, ...s.clients] }));
   },
 
   updateClient: async (id, client) => {
-    const res = await fetch(`/api/clients/${id}`, { method: 'PUT', headers: headers(), body: JSON.stringify(client) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.put(`/api/clients/${id}`, client);
     set((s) => ({ clients: s.clients.map((c) => (c.id === id ? data : c)) }));
   },
 
   deleteClient: async (id) => {
-    const res = await fetch(`/api/clients/${id}`, { method: 'DELETE', headers: headers() });
-    if (!res.ok) throw new Error('Gagal menghapus client');
+    await api.delete(`/api/clients/${id}`);
     set((s) => ({ clients: s.clients.filter((c) => c.id !== id) }));
   },
 
   fetchNextInvoiceNo: async () => {
-    const res = await fetch('/api/next-invoice-number', { headers: headers() });
-    const data = await res.json();
+    const { data } = await api.get('/api/next-invoice-number');
     return data.invoiceNo;
   },
 
@@ -361,9 +285,9 @@ export const useStore = create<AppState>()((set, get) => ({
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
-    const res = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const { data } = await api.post('/api/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data.url;
   },
 }));

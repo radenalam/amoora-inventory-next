@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import api from '@/lib/api';
 import { FileText, CheckCircle, Clock, Plus, Package, Users, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -27,11 +28,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard/stats', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('amoora_token')}` },
-    })
-      .then(r => r.json())
-      .then(data => { if (data.error) throw new Error(data.error); setStats(data); })
+    api.get('/api/dashboard/stats')
+      .then(({ data }) => setStats(data))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
