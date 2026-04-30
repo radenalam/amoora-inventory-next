@@ -1,63 +1,47 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useStore } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { FileText, CheckCircle, Clock, Plus, Package, Users, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StatCardsSkeleton, Skeleton } from '@/components/UI';
 
+interface Stats {
+  openCount: number;
+  openTotal: number;
+  paidCount: number;
+  paidTotal: number;
+  pendingCount: number;
+  pendingTotal: number;
+  totalCount: number;
+  totalAmount: number;
+  monthRevenue: number;
+  recentInvoices: any[];
+  topProducts: any[];
+  monthlyRevenue: { name: string; revenue: number }[];
+}
+
 export default function DashboardPage() {
-  const { invoices, products, fetchInvoices, fetchProducts } = useStore();
-  const router = useRouter();
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetchInvoices(),
-      fetchProducts(),
-      fetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${localStorage.getItem('amoora_token')}` } })
-        .then(r => r.json()).catch(() => null),
-    ]).then(([_, __, statsData]) => {
-      setStats(statsData);
-      setLoading(false);
-    });
+    fetch('/api/dashboard/stats', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('amoora_token')}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (data.error) throw new Error(data.error); setStats(data); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const openCount = stats?.openCount ?? invoices.filter((i) => i.status === 'draft' || i.status === 'issued').length;
-  const openTotal = stats?.openTotal ?? invoices.filter((i) => i.status === 'draft' || i.status === 'issued').reduce((s, i) => s + i.total, 0);
-  const paidCount = stats?.paidCount ?? invoices.filter((i) => i.status === 'paid').length;
-  const paidTotal = stats?.paidTotal ?? invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0);
-  const pendingCount = stats?.pendingCount ?? invoices.filter((i) => i.status === 'issued').length;
-  const pendingTotal = stats?.pendingTotal ?? invoices.filter((i) => i.status === 'issued').reduce((s, i) => s + i.total, 0);
-  const totalCount = invoices.length;
-  const totalAmount = invoices.reduce((s, i) => s + i.total, 0);
-
-  const recentInvoices = stats?.recentInvoices ?? [...invoices]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
-
-  const topProducts = stats?.topProducts ?? [];
-
-  const monthlyData = [
-    { name: 'Jan', revenue: 12000000 },
-    { name: 'Feb', revenue: 15000000 },
-    { name: 'Mar', revenue: 18000000 },
-    { name: 'Apr', revenue: 16000000 },
-    { name: 'May', revenue: 24000000 },
-    { name: 'Jun', revenue: 22000000 },
-    { name: 'Jul', revenue: 32000000 },
-  ];
-
-  const statCards = [
-    { name: 'Invoice Terbuka', count: openCount, value: formatCurrency(openTotal), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { name: 'Invoice Lunas', count: paidCount, value: formatCurrency(paidTotal), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { name: 'Menunggu Bayar', count: pendingCount, value: formatCurrency(pendingTotal), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { name: 'Total Invoice', count: totalCount, value: formatCurrency(totalAmount), icon: FileText, color: 'text-violet-600', bg: 'bg-violet-50' },
-  ];
+  const statCards = stats ? [
+    { name: 'Invoice Terbuka', count: stats.openCount, value: formatCurrency(stats.openTotal), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { name: 'Invoice Lunas', count: stats.paidCount, value: formatCurrency(stats.paidTotal), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { name: 'Menunggu Bayar', count: stats.pendingCount, value: formatCurrency(stats.pendingTotal), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { name: 'Total Invoice', count: stats.totalCount, value: formatCurrency(stats.totalAmount), icon: FileText, color: 'text-violet-600', bg: 'bg-violet-50' },
+  ] : [];
 
   const statusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -104,7 +88,7 @@ export default function DashboardPage() {
                 <Link href="/invoices" className="text-sm text-blue-600 hover:text-blue-700 font-medium">Lihat Semua →</Link>
               </div>
               <div className="overflow-x-auto flex-1">
-                {recentInvoices.length === 0 ? (
+                {stats?.recentInvoices.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                     <FileText className="w-10 h-10 mb-2" />
                     <p className="text-sm">Belum ada invoice</p>
@@ -121,13 +105,13 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {recentInvoices.map((invoice: any) => (
+                      {stats?.recentInvoices.map((invoice: any) => (
                         <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
                           <td className="px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900"><Link href={`/invoices/${invoice.id}/print`} className="hover:text-blue-600">{invoice.invoiceNo}</Link></td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{invoice.invoiceFor.split('\n')[0]}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell">{(invoice.invoiceFor || '-').split('\n')[0]}</td>
                           <td className="px-6 py-3 whitespace-nowrap">{statusBadge(invoice.status)}</td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{invoice.dueDate ? formatDate(invoice.dueDate) : '-'}</td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 text-right">{formatCurrency(invoice.total)}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 text-right">{formatCurrency(Number(invoice.total))}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -163,9 +147,9 @@ export default function DashboardPage() {
                 <h3 className="text-base font-semibold text-gray-800">Produk Terlaris</h3>
               </div>
               <div className="p-6 space-y-5">
-                {topProducts.length > 0 ? topProducts.map((product: any, index: number) => {
+                {stats?.topProducts && stats.topProducts.length > 0 ? stats.topProducts.map((product: any, index: number) => {
                   const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-violet-500'];
-                  const maxTotal = Math.max(...topProducts.map((p: any) => p.total), 1);
+                  const maxTotal = Math.max(...stats.topProducts.map((p: any) => p.total), 1);
                   return (
                     <div key={index} className="flex items-center gap-4">
                       <span className="text-sm font-semibold text-gray-400 w-5 text-center">{index + 1}</span>
@@ -192,20 +176,26 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
               <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
                 <h3 className="text-base font-semibold text-gray-800">Pendapatan Bulanan</h3>
-                <div className="text-sm font-bold text-blue-600">Rp 32M ▾</div>
+                <div className="text-sm font-bold text-blue-600">{stats ? formatCurrency(stats.monthRevenue) : '-'}</div>
               </div>
               <div className="p-6">
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9CA3AF' }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={false} />
-                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '13px' }} />
-                      <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4, fill: 'white', stroke: '#3b82f6', strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                {stats?.monthlyRevenue && stats.monthlyRevenue.length > 0 ? (
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={stats.monthlyRevenue} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9CA3AF' }} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={false} />
+                        <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '13px' }} />
+                        <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4, fill: 'white', stroke: '#3b82f6', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                    <p className="text-sm">Belum ada data pendapatan tahun ini</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
