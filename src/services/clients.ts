@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete, buildQuery } from './api';
-import type { Client } from '@/store/useStore';
+import type { Client } from '@/types';
 
 export interface ListClientsParams {
   search?: string;

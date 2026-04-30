@@ -1,13 +1,22 @@
 import nodemailer from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const FROM_EMAIL = process.env.FROM_EMAIL;
+
+if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !FROM_EMAIL) {
+  throw new Error('Missing required SMTP environment variables (SMTP_HOST, SMTP_USER, SMTP_PASS, FROM_EMAIL)');
+}
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  host: SMTP_HOST,
   port: Number(process.env.SMTP_PORT) || 587,
   secure: false,
   auth: {
-    user: process.env.SMTP_USER || '8c9099001@smtp-brevo.com',
-    pass: process.env.SMTP_PASS || '5ZXwCf1nc2S0FgvP',
+    user: SMTP_USER,
+    pass: SMTP_PASS,
   },
 });
 
@@ -24,7 +33,7 @@ export async function sendEmail({
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const info: SMTPTransport.SentMessageInfo = await transporter.sendMail({
-      from: `"${process.env.FROM_NAME || 'Amoora Couture'}" <${process.env.FROM_EMAIL || process.env.SMTP_USER || '8c9099001@smtp-brevo.com'}>`,
+      from: `"${process.env.FROM_NAME || 'Amoora Couture'}" <${FROM_EMAIL}>`,
       to,
       subject,
       html,

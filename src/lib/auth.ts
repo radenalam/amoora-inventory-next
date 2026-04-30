@@ -1,15 +1,19 @@
 import jwt from 'jsonwebtoken';
 import { getTokenFromHeaders } from './utils';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'amoora_dev_secret';
+const _jwtSecret = process.env.JWT_SECRET;
+if (!_jwtSecret) {
+  throw new Error('JWT_SECRET environment variable is not set');
+}
+const jwtSecret: string = _jwtSecret;
 
 export function generateToken(userId: string, email: string): string {
-  return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId, email }, jwtSecret, { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): { userId: string; email: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    return jwt.verify(token, jwtSecret) as { userId: string; email: string };
   } catch {
     return null;
   }

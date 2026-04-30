@@ -2,89 +2,12 @@
 
 import { create } from 'zustand';
 import * as authService from '@/services/auth';
-import * as clientService from '@/services/clients';
-import * as productService from '@/services/products';
-import * as invoiceService from '@/services/invoices';
-import * as settingsService from '@/services/settings';
-import * as uploadService from '@/services/upload';
 
-export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
+export type { Product, Invoice, InvoiceItem, InvoiceStatus, Client, BusinessSettings } from '@/types';
 
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  unit: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface InvoiceItem {
-  id?: string;
-  productId?: string;
-  description: string;
-  qty: number;
-  unitPrice: number;
-  total?: number;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNo: string;
-  date: string;
-  dueDate?: string | null;
-  poNumber?: string | null;
-  paymentMethod: string;
-  clientId: string;
-  invoiceFor: string;
-  payableTo: string;
-
-  items: InvoiceItem[];
-  subtotal: number;
-  discountType: 'nominal' | 'percent';
-  discountValue: number;
-  taxType: 'nominal' | 'percent';
-  taxValue: number;
-  shipping: number;
-  downPayment: number;
-  total: number;
-  notes: string;
-  status: InvoiceStatus;
-  createdAt?: string;
-  updatedAt?: string;
-  client?: any;
-}
-
-export interface BusinessSettings {
-  id?: string;
-  name: string;
-  address: string;
-  phone: string;
-  email: string;
-  logoUrl: string;
-  signatureUrl: string;
-  signerName: string;
-  defaultNotes: string;
-}
-
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  notes: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface AppState {
+interface AuthState {
   isAuthenticated: boolean;
   user: { id: string; name: string; email: string } | null;
-  products: Product[];
-  invoices: Invoice[];
-  settings: BusinessSettings;
   loading: boolean;
   error: string | null;
 
@@ -92,45 +15,11 @@ interface AppState {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => void;
-
-  fetchProducts: () => Promise<void>;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
-  deleteProduct: (id: string) => Promise<void>;
-
-  fetchInvoices: (params?: { status?: string; search?: string }) => Promise<any>;
-  fetchInvoice: (id: string) => Promise<Invoice | null>;
-  addInvoice: (invoice: any) => Promise<void>;
-  updateInvoice: (id: string, invoice: any) => Promise<void>;
-  deleteInvoice: (id: string) => Promise<void>;
-
-  fetchSettings: () => Promise<void>;
-  updateSettings: (settings: Partial<BusinessSettings>) => Promise<void>;
-
-  clients: Client[];
-  fetchClients: () => Promise<void>;
-  addClient: (client: any) => Promise<void>;
-  updateClient: (id: string, client: any) => Promise<void>;
-  deleteClient: (id: string) => Promise<void>;
-  fetchNextInvoiceNo: () => Promise<string>;
-  uploadFile: (file: File, type: 'logo' | 'signature') => Promise<string>;
 }
 
-export const useStore = create<AppState>()((set, get) => ({
+export const useStore = create<AuthState>()((set) => ({
   isAuthenticated: false,
   user: null,
-  products: [],
-  invoices: [],
-  settings: {
-    name: 'Amoora Couture',
-    address: 'Jl. Kaliurang, Tambakan, Sinduharjo, Kec. Sleman, Kabupaten Sleman, DIY 55581',
-    phone: '0813-9201-3855',
-    email: 'hello@amooracouture.com',
-    logoUrl: '',
-    signatureUrl: '',
-    signerName: 'Amoora Admin',
-    defaultNotes: 'Pembayaran dapat ditransfer ke rekening BCA 1234567890 a.n Amoora Couture. Terima kasih atas kepercayaan Anda.',
-  },
   loading: false,
   error: null,
 
@@ -163,7 +52,7 @@ export const useStore = create<AppState>()((set, get) => ({
   logout: () => {
     localStorage.removeItem('amoora_token');
     localStorage.removeItem('amoora_user');
-    set({ isAuthenticated: false, user: null, invoices: [], products: [] });
+    set({ isAuthenticated: false, user: null });
   },
 
   checkAuth: () => {
@@ -174,113 +63,5 @@ export const useStore = create<AppState>()((set, get) => ({
     } catch {
       set({ isAuthenticated: !!token, user: null });
     }
-  },
-
-  fetchProducts: async () => {
-    try {
-      const { items } = await productService.listProducts();
-      set({ products: items });
-    } catch (err: any) {
-      if (err.response?.status === 401) return;
-      console.error('Fetch products error:', err);
-    }
-  },
-
-  addProduct: async (product) => {
-    const data = await productService.createProduct(product);
-    set((s) => ({ products: [data, ...s.products] }));
-  },
-
-  updateProduct: async (id, product) => {
-    const data = await productService.updateProduct(id, product);
-    set((s) => ({ products: s.products.map((p) => (p.id === id ? data : p)) }));
-  },
-
-  deleteProduct: async (id) => {
-    await productService.deleteProduct(id);
-    set((s) => ({ products: s.products.filter((p) => p.id !== id) }));
-  },
-
-  fetchInvoices: async (params) => {
-    try {
-      const { items, pagination } = await invoiceService.listInvoices(params);
-      set({ invoices: items });
-      return { items, pagination };
-    } catch (err: any) {
-      if (err.response?.status === 401) return;
-      console.error('Fetch invoices error:', err);
-    }
-  },
-
-  fetchInvoice: async (id) => {
-    try {
-      return await invoiceService.getInvoice(id);
-    } catch {
-      return null;
-    }
-  },
-
-  addInvoice: async (invoice) => {
-    const data = await invoiceService.createInvoice(invoice);
-    set((s) => ({ invoices: [data, ...s.invoices] }));
-  },
-
-  updateInvoice: async (id, invoice) => {
-    const data = await invoiceService.updateInvoice(id, invoice);
-    set((s) => ({ invoices: s.invoices.map((i) => (i.id === id ? data : i)) }));
-  },
-
-  deleteInvoice: async (id) => {
-    await invoiceService.deleteInvoice(id);
-    set((s) => ({ invoices: s.invoices.filter((i) => i.id !== id) }));
-  },
-
-  fetchSettings: async () => {
-    try {
-      const data = await settingsService.getSettings();
-      set({ settings: data });
-    } catch (err) {
-      console.error('Fetch settings error:', err);
-    }
-  },
-
-  updateSettings: async (settings) => {
-    const data = await settingsService.updateSettings(settings);
-    set({ settings: data });
-  },
-
-  clients: [],
-
-  fetchClients: async () => {
-    try {
-      const { items } = await clientService.listClients();
-      set({ clients: items });
-    } catch (err: any) {
-      if (err.response?.status === 401) return;
-      console.error('Fetch clients error:', err);
-    }
-  },
-
-  addClient: async (client) => {
-    const data = await clientService.createClient(client);
-    set((s) => ({ clients: [data, ...s.clients] }));
-  },
-
-  updateClient: async (id, client) => {
-    const data = await clientService.updateClient(id, client);
-    set((s) => ({ clients: s.clients.map((c) => (c.id === id ? data : c)) }));
-  },
-
-  deleteClient: async (id) => {
-    await clientService.deleteClient(id);
-    set((s) => ({ clients: s.clients.filter((c) => c.id !== id) }));
-  },
-
-  fetchNextInvoiceNo: async () => {
-    return await invoiceService.getNextInvoiceNo();
-  },
-
-  uploadFile: async (file, type) => {
-    return await uploadService.uploadFile(file, type);
   },
 }));

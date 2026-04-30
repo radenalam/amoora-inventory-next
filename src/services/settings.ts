@@ -1,5 +1,5 @@
 import { apiGet, apiPut } from './api';
-import type { BusinessSettings } from '@/store/useStore';
+import type { BusinessSettings } from '@/types';
 
 export async function getSettings(): Promise<BusinessSettings> {
   return apiGet<BusinessSettings>('/api/settings');

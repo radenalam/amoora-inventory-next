@@ -1,40 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useStore } from '@/store/useStore';
+import { useState } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Plus, Search, Eye, Edit2, Trash2, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/components/ToastProvider';
 import { EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
+import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
 
 export default function InvoiceListPage() {
-  const { invoices, fetchInvoices, deleteInvoice } = useStore();
-  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [loadingData, setLoadingData] = useState(true);
+  const [activeSearch, setActiveSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    fetchInvoices({ status: statusFilter === 'all' ? undefined : statusFilter, search: searchTerm || undefined }).finally(() => setLoadingData(false));
-  }, [statusFilter]);
+  const { data: invoicesData, isLoading: loadingData } = useInvoices({
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    search: activeSearch || undefined,
+  });
+  const invoices = invoicesData?.items ?? [];
+  const deleteInvoice = useDeleteInvoice();
+  const { showToast } = useToast();
 
   const handleSearch = () => {
-    setLoadingData(true);
-    fetchInvoices({ status: statusFilter === 'all' ? undefined : statusFilter, search: searchTerm || undefined }).finally(() => setLoadingData(false));
+    setActiveSearch(searchTerm);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
     try {
-      await deleteInvoice(deleteTarget.id);
+      await deleteInvoice.mutateAsync(deleteTarget.id);
       showToast('Invoice berhasil dihapus');
       setDeleteTarget(null);
     } catch { showToast('Gagal menghapus invoice', 'error'); }
-    setDeleting(false);
   };
 
   const statusBadge = (status: string) => {
@@ -143,7 +141,7 @@ export default function InvoiceListPage() {
         title="Hapus Invoice"
         message={`Apakah Anda yakin ingin menghapus invoice ${deleteTarget?.invoiceNo}? Tindakan ini tidak dapat dibatalkan.`}
         confirmLabel="Hapus"
-        loading={deleting}
+        loading={deleteInvoice.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

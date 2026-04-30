@@ -1,55 +1,55 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useStore, Invoice } from '@/store/useStore';
+import type { Invoice } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Printer, ArrowLeft, Edit2, Loader2, Download, Mail, Users } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { pdf } from '@react-pdf/renderer';
 import InvoicePDFDocument from '@/components/InvoicePDF';
+import { useInvoice } from '@/hooks/useInvoices';
+import { useSettings } from '@/hooks/useSettings';
+import { useSendInvoiceEmail } from '@/hooks/useInvoices';
 import { listClients } from '@/services/clients';
-import { sendInvoiceEmail } from '@/services/invoices';
+import { useToast } from '@/components/ToastProvider';
 
 export default function InvoicePrintPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { settings, fetchInvoice, fetchSettings } = useStore();
+  const { data: invoice, isLoading: loading } = useInvoice(id);
+  const { data: settings } = useSettings();
+  const sendEmail = useSendInvoiceEmail();
+  const { showToast } = useToast();
 
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string>('');
   const [clientEmail, setClientEmail] = useState<string>('');
   const [clientData, setClientData] = useState<any>(null);
 
-  useEffect(() => {
-    fetchSettings();
-    if (id) {
-      fetchInvoice(id).then(async (inv) => {
-        setInvoice(inv);
-        setLoading(false);
-        // Use client data from invoice response
-        if (inv?.client) {
-          setClientEmail(inv.client.email || '');
-          setClientData(inv.client);
-        } else if (inv?.invoiceFor) {
-          try {
-            const { items } = await listClients({ search: inv.invoiceFor, limit: 1 });
-            const match = items.find((cl) =>
-              cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
-            );
-            if (match?.email) { setClientEmail(match.email); setClientData(match); }
-          } catch {}
-        }
-      });
+  const loadClientData = useCallback(async (inv: Invoice) => {
+    if (inv?.client) {
+      setClientEmail(inv.client.email || '');
+      setClientData(inv.client);
+    } else if (inv?.invoiceFor) {
+      try {
+        const { items } = await listClients({ search: inv.invoiceFor, limit: 1 });
+        const match = items.find((cl) =>
+          cl.name.toLowerCase() === inv.invoiceFor.toLowerCase()
+        );
+        if (match?.email) { setClientEmail(match.email); setClientData(match); }
+      } catch {}
     }
-  }, [id]);
+  }, []);
+
+  useEffect(() => {
+    if (invoice) loadClientData(invoice);
+  }, [invoice, loadClientData]);
 
   const handleDownloadPDF = useCallback(async () => {
-    if (!invoice) return;
+    if (!invoice || !settings) return;
     setGenerating(true);
     try {
       const blob = await pdf(
@@ -63,13 +63,13 @@ export default function InvoicePrintPage() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('PDF generation error:', err);
-      alert('Gagal generate PDF');
+      showToast('Gagal generate PDF', 'error');
     }
     setGenerating(false);
-  }, [invoice, settings]);
+  }, [invoice, settings, clientData, showToast]);
 
   const handlePrint = useCallback(async () => {
-    if (!invoice) return;
+    if (!invoice || !settings) return;
     setGenerating(true);
     try {
       const blob = await pdf(
@@ -85,24 +85,25 @@ export default function InvoicePrintPage() {
       }
     } catch (err) {
       console.error('PDF generation error:', err);
-      alert('Gagal generate PDF');
+      showToast('Gagal generate PDF', 'error');
     }
     setGenerating(false);
-  }, [invoice, settings]);
+  }, [invoice, settings, clientData, showToast]);
 
   const handleSendEmail = useCallback(async () => {
     if (!invoice) return;
     setSendingEmail(true);
     setEmailStatus('');
     try {
-      const result = await sendInvoiceEmail(invoice.id);
-      setEmailStatus(`✅ Email dikirim ke ${result.recipient}`);
-    } catch (err: any) {
-      setEmailStatus(`❌ ${err.response?.data?.error || 'Gagal mengirim email'}`);
-      setEmailStatus('❌ Gagal mengirim email');
+      const result = await sendEmail.mutateAsync(invoice.id);
+      setEmailStatus(`Email dikirim ke ${result.recipient}`);
+      showToast('Email berhasil dikirim');
+    } catch {
+      setEmailStatus('Gagal mengirim email');
+      showToast('Gagal mengirim email', 'error');
     }
     setSendingEmail(false);
-  }, [invoice]);
+  }, [invoice, sendEmail, showToast]);
 
   if (loading) {
     return (
@@ -166,11 +167,11 @@ export default function InvoicePrintPage() {
         <div className="p-8 sm:p-12">
           <div className="flex justify-between items-start border-b border-gray-200 pb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 uppercase tracking-wider">{settings.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 uppercase tracking-wider">{settings?.name || ''}</h1>
               <div className="mt-2 text-sm text-gray-500 max-w-xs">
-                <p>{settings.address}</p>
-                <p className="mt-1">Telp: {settings.phone}</p>
-                <p>Email: {settings.email}</p>
+                <p>{settings?.address || ''}</p>
+                <p className="mt-1">Telp: {settings?.phone || ''}</p>
+                <p>Email: {settings?.email || ''}</p>
               </div>
             </div>
             <div className="text-right">
@@ -244,8 +245,8 @@ export default function InvoicePrintPage() {
             <div className="text-right flex flex-col items-end">
               <p className="text-sm text-gray-900 mb-16">Hormat Kami,</p>
               <div className="border-b border-gray-400 w-48 mb-2"></div>
-              <p className="text-sm font-bold text-gray-900">{settings.signerName}</p>
-              <p className="text-xs text-gray-500">{settings.name}</p>
+              <p className="text-sm font-bold text-gray-900">{settings?.signerName || ''}</p>
+              <p className="text-xs text-gray-500">{settings?.name || ''}</p>
             </div>
           </div>
         </div>

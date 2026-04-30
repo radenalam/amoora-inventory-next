@@ -1,28 +1,47 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useStore } from '@/store/useStore';
+import { useState, useEffect } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
+import { useToast } from '@/components/ToastProvider';
+import { useSettings, useUpdateSettings, useUploadFile } from '@/hooks/useSettings';
+
+const defaultSettings = {
+  name: 'Amoora Couture',
+  address: '',
+  phone: '',
+  email: '',
+  logoUrl: '',
+  signatureUrl: '',
+  signerName: '',
+  defaultNotes: '',
+};
 
 export default function SettingsPage() {
-  const { settings, fetchSettings, updateSettings, uploadFile } = useStore();
-  const [formData, setFormData] = useState(settings);
+  const { data: settings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
+  const uploadFile = useUploadFile();
+  const { showToast } = useToast();
+  const [formData, setFormData] = useState(defaultSettings);
   const [isSaved, setIsSaved] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { fetchSettings(); }, []);
-  useEffect(() => { setFormData(settings); }, [settings]);
+  useEffect(() => { if (settings) setFormData(settings); }, [settings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     try {
-      await updateSettings(formData);
+      await updateSettings.mutateAsync(formData);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
-    } catch { alert('Gagal menyimpan pengaturan'); }
-    setLoading(false);
+    } catch { showToast('Gagal menyimpan pengaturan', 'error'); }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -74,7 +93,7 @@ export default function SettingsPage() {
                     <span className="text-sm text-gray-500">Upload Logo</span>
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) { try { const url = await uploadFile(file, 'logo'); setFormData(prev => ({ ...prev, logoUrl: url })); } catch { alert('Gagal upload logo'); } }
+                      if (file) { try { const url = await uploadFile.mutateAsync({ file, type: 'logo' }); setFormData(prev => ({ ...prev, logoUrl: url })); } catch { showToast('Gagal upload logo', 'error'); } }
                     }} />
                   </label>
                 )}
@@ -92,7 +111,7 @@ export default function SettingsPage() {
                     <span className="text-sm text-gray-500">Upload Tanda Tangan</span>
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) { try { const url = await uploadFile(file, 'signature'); setFormData(prev => ({ ...prev, signatureUrl: url })); } catch { alert('Gagal upload tanda tangan'); } }
+                      if (file) { try { const url = await uploadFile.mutateAsync({ file, type: 'signature' }); setFormData(prev => ({ ...prev, signatureUrl: url })); } catch { showToast('Gagal upload tanda tangan', 'error'); } }
                     }} />
                   </label>
                 )}
@@ -101,8 +120,8 @@ export default function SettingsPage() {
           </div>
           <div className="pt-5 flex items-center justify-end">
             {isSaved && <span className="text-sm text-green-600 mr-4 font-medium">Berhasil disimpan!</span>}
-            <button type="submit" disabled={loading} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
-              {loading ? 'Menyimpan...' : 'Simpan Pengaturan'}
+            <button type="submit" disabled={updateSettings.isPending} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+              {updateSettings.isPending ? 'Menyimpan...' : 'Simpan Pengaturan'}
             </button>
           </div>
         </form>

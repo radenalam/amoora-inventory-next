@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete, buildQuery } from './api';
-import type { Product } from '@/store/useStore';
+import type { Product } from '@/types';
 
 export interface ListProductsResult {
   items: Product[];

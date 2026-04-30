@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, 'Deskripsi item wajib diisi'),

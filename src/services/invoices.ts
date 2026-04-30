@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete, buildQuery } from './api';
-import type { Invoice } from '@/store/useStore';
+import type { Invoice } from '@/types';
 
 export interface ListInvoicesParams {
   status?: string;

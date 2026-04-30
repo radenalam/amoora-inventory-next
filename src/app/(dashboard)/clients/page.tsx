@@ -1,25 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useStore, Client } from '@/store/useStore';
+import { useState } from 'react';
+import type { Client } from '@/types';
 import { Plus, Edit2, Trash2, X, Loader2, Users, Search, Mail, Phone, MapPin } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/components/ToastProvider';
 import { EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
+import { useClients, useCreateClient, useUpdateClient, useDeleteClient } from '@/hooks/useClients';
+import { clientFormSchema, type ClientFormValues } from '@/lib/validations/forms';
 
 export default function ClientsPage() {
-  const { clients, fetchClients, addClient, updateClient, deleteClient } = useStore();
+  const { data: clientsData, isLoading: loadingData } = useClients();
+  const clients = clientsData?.items ?? [];
+  const createClient = useCreateClient();
+  const updateClient = useUpdateClient();
+  const deleteClient = useDeleteClient();
   const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => { fetchClients().finally(() => setLoadingData(false)); }, []);
-
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', address: '', notes: '' });
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientFormSchema),
+    defaultValues: { name: '', email: '', phone: '', address: '', notes: '' },
+  });
 
   const filtered = clients.filter((c) =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -30,10 +36,10 @@ export default function ClientsPage() {
   const handleOpenModal = (client?: Client) => {
     if (client) {
       setEditingClient(client);
-      setFormData({ name: client.name, email: client.email, phone: client.phone, address: client.address, notes: client.notes });
+      form.reset({ name: client.name, email: client.email, phone: client.phone, address: client.address, notes: client.notes });
     } else {
       setEditingClient(null);
-      setFormData({ name: '', email: '', phone: '', address: '', notes: '' });
+      form.reset();
     }
     setIsModalOpen(true);
   };
@@ -42,29 +48,25 @@ export default function ClientsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     try {
       if (editingClient) {
-        await updateClient(editingClient.id, formData);
+        await updateClient.mutateAsync({ id: editingClient.id, data: form.getValues() });
         showToast('Client berhasil diperbarui');
       } else {
-        await addClient(formData);
+        await createClient.mutateAsync(form.getValues());
         showToast('Client berhasil ditambahkan');
       }
       handleCloseModal();
     } catch { showToast('Gagal menyimpan client', 'error'); }
-    setLoading(false);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
     try {
-      await deleteClient(deleteTarget.id);
+      await deleteClient.mutateAsync(deleteTarget.id);
       showToast('Client berhasil dihapus');
       setDeleteTarget(null);
     } catch { showToast('Gagal menghapus client', 'error'); }
-    setDeleting(false);
   };
 
   return (
@@ -162,30 +164,32 @@ export default function ClientsPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nama *</label>
-                    <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Nama perusahaan atau individu" />
+                    <input type="text" {...form.register('name')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Nama perusahaan atau individu" />
+                    {form.formState.errors.name && <p className="mt-1 text-sm text-red-600">{form.formState.errors.name.message}</p>}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="email@contoh.com" />
+                      <input type="email" {...form.register('email')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="email@contoh.com" />
+                      {form.formState.errors.email && <p className="mt-1 text-sm text-red-600">{form.formState.errors.email.message}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Telepon</label>
-                      <input type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="0812-xxxx-xxxx" />
+                      <input type="text" {...form.register('phone')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="0812-xxxx-xxxx" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
-                    <textarea rows={2} value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Alamat lengkap" />
+                    <textarea rows={2} {...form.register('address')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Alamat lengkap" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
-                    <input type="text" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Catatan tambahan" />
+                    <input type="text" {...form.register('notes')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Catatan tambahan" />
                   </div>
                   <div className="mt-6 flex justify-end gap-3">
                     <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Batal</button>
-                    <button type="submit" disabled={loading} className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2">
-                      {loading && <Loader2 className="w-4 h-4 animate-spin" />}{editingClient ? 'Simpan Perubahan' : 'Tambah Client'}
+                    <button type="submit" disabled={createClient.isPending || updateClient.isPending} className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2">
+                      {(createClient.isPending || updateClient.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}{editingClient ? 'Simpan Perubahan' : 'Tambah Client'}
                     </button>
                   </div>
                 </form>
@@ -200,7 +204,7 @@ export default function ClientsPage() {
         title="Hapus Client"
         message={`Apakah Anda yakin ingin menghapus "${deleteTarget?.name}"? Data client yang sudah digunakan di invoice tidak akan terpengaruh.`}
         confirmLabel="Hapus"
-        loading={deleting}
+        loading={deleteClient.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

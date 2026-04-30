@@ -1,30 +1,38 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useStore } from '@/store/useStore';
+import { loginFormSchema, type LoginFormValues } from '@/lib/validations/forms';
 
 export default function LoginClient() {
   const router = useRouter();
-  const { login, error, loading, isAuthenticated } = useStore();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [localError, setLocalError] = useState('');
+  const { login, error: storeError, loading, isAuthenticated } = useStore();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginFormSchema),
+  });
 
   useEffect(() => {
     if (isAuthenticated) router.replace('/');
   }, [isAuthenticated]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLocalError('');
+  const onSubmit = async (data: LoginFormValues) => {
     try {
-      await login(email, password);
+      await login(data.email, data.password);
       router.push('/');
     } catch {
-      setLocalError(error || 'Email atau password salah');
+      // storeError is set by the store
     }
   };
+
+  const displayError = errors.root?.message || storeError || '';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -38,29 +46,27 @@ export default function LoginClient() {
 
       <div className="mt-2 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100">
-          {(localError || error) && (
+          {displayError && (
             <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
               <span className="text-red-500 text-lg">⚠</span>
-              <p className="text-sm text-red-700">{localError || error}</p>
+              <p className="text-sm text-red-700">{displayError}</p>
             </div>
           )}
 
-          <form className="space-y-5" onSubmit={handleLogin}>
+          <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Email
               </label>
               <input
                 id="email"
-                name="email"
                 type="email"
                 autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                {...register('email')}
                 className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-shadow"
                 placeholder="email@company.com"
               />
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>
@@ -69,15 +75,13 @@ export default function LoginClient() {
               </label>
               <input
                 id="password"
-                name="password"
                 type="password"
                 autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                {...register('password')}
                 className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-shadow"
                 placeholder="••••••••"
               />
+              {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
             </div>
 
             <div>
@@ -93,7 +97,6 @@ export default function LoginClient() {
               </button>
             </div>
           </form>
-
 
         </div>
       </div>

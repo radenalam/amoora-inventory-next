@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, FileText, Package, Settings, LogOut, Menu, Bell, CheckSquare, Users } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { cn } from '@/lib/utils';
 
@@ -11,15 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, logout, fetchProducts, fetchInvoices, fetchSettings } = useStore();
-
-  useEffect(() => {
-    if (user) {
-      fetchProducts();
-      fetchInvoices();
-      fetchSettings();
-    }
-  }, []);
+  const { user, logout } = useStore();
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },

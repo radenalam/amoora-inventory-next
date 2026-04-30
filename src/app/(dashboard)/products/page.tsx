@@ -1,28 +1,32 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useStore, Product } from '@/store/useStore';
+import { useState } from 'react';
+import type { Product } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Edit2, Trash2, X, Loader2, Package, Search } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/components/ToastProvider';
 import { EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
+import { productFormSchema, type ProductFormValues } from '@/lib/validations/forms';
 
 export default function ProductsPage() {
-  const { products, fetchProducts, addProduct, updateProduct, deleteProduct } = useStore();
+  const { data: productsData, isLoading: loadingData } = useProducts();
+  const products = productsData?.items ?? [];
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
   const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    fetchProducts().finally(() => setLoadingData(false));
-  }, []);
-
-  const [formData, setFormData] = useState({ name: '', description: '', price: 0, unit: 'pcs' });
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: { name: '', description: '', price: 0, unit: 'pcs' },
+  });
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -32,10 +36,10 @@ export default function ProductsPage() {
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData({ name: product.name, description: product.description, price: product.price, unit: product.unit });
+      form.reset({ name: product.name, description: product.description, price: product.price, unit: product.unit });
     } else {
       setEditingProduct(null);
-      setFormData({ name: '', description: '', price: 0, unit: 'pcs' });
+      form.reset();
     }
     setIsModalOpen(true);
   };
@@ -44,29 +48,26 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    const values = form.getValues();
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct.id, formData);
+        await updateProduct.mutateAsync({ id: editingProduct.id, data: values });
         showToast('Produk berhasil diperbarui');
       } else {
-        await addProduct(formData);
+        await createProduct.mutateAsync(values);
         showToast('Produk berhasil ditambahkan');
       }
       handleCloseModal();
     } catch { showToast('Gagal menyimpan produk', 'error'); }
-    setLoading(false);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
     try {
-      await deleteProduct(deleteTarget.id);
+      await deleteProduct.mutateAsync(deleteTarget.id);
       showToast('Produk berhasil dihapus');
       setDeleteTarget(null);
     } catch { showToast('Gagal menghapus produk', 'error'); }
-    setDeleting(false);
   };
 
   return (
@@ -150,26 +151,29 @@ export default function ProductsPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
-                    <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Contoh: Kemeja Batik Premium" />
+                    <input type="text" {...form.register('name')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Contoh: Kemeja Batik Premium" />
+                    {form.formState.errors.name && <p className="mt-1 text-sm text-red-600">{form.formState.errors.name.message}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
-                    <textarea rows={2} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Deskripsi singkat produk" />
+                    <textarea rows={2} {...form.register('description')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="Deskripsi singkat produk" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Harga Default</label>
-                      <input type="number" required min="0" value={formData.price} onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" />
+                      <input type="number" {...form.register('price', { valueAsNumber: true })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" />
+                      {form.formState.errors.price && <p className="mt-1 text-sm text-red-600">{form.formState.errors.price.message}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
-                      <input type="text" required value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="pcs, kg, dll" />
+                      <input type="text" {...form.register('unit')} className="block w-full border border-gray-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm" placeholder="pcs, kg, dll" />
+                      {form.formState.errors.unit && <p className="mt-1 text-sm text-red-600">{form.formState.errors.unit.message}</p>}
                     </div>
                   </div>
                   <div className="mt-6 flex justify-end gap-3">
                     <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Batal</button>
-                    <button type="submit" disabled={loading} className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2">
-                      {loading && <Loader2 className="w-4 h-4 animate-spin" />}{editingProduct ? 'Simpan Perubahan' : 'Tambah Produk'}
+                    <button type="submit" disabled={createProduct.isPending || updateProduct.isPending} className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2">
+                      {(createProduct.isPending || updateProduct.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}{editingProduct ? 'Simpan Perubahan' : 'Tambah Produk'}
                     </button>
                   </div>
                 </form>
@@ -184,7 +188,7 @@ export default function ProductsPage() {
         title="Hapus Produk"
         message={`Apakah Anda yakin ingin menghapus "${deleteTarget?.name}"? Tindakan ini tidak dapat dibatalkan.`}
         confirmLabel="Hapus"
-        loading={deleting}
+        loading={deleteProduct.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

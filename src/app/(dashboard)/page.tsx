@@ -1,23 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { FileText, CheckCircle, Clock, Plus, Package, Users, Settings, Loader2 } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Plus, Package, Users, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StatCardsSkeleton, Skeleton } from '@/components/UI';
-import { getStats, type DashboardStats } from '@/services/dashboard';
+import { useDashboardStats } from '@/hooks/useDashboard';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getStats()
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: stats, isLoading: loading } = useDashboardStats();
 
   const statCards = stats ? [
     { name: 'Invoice Terbuka', count: stats.openCount, value: formatCurrency(stats.openTotal), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
