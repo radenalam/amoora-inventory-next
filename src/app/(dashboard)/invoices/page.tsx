@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, Search, Eye, Edit2, Trash2, FileText, Mail, Download } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Trash2, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/components/ToastProvider';
-import { Skeleton, EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
+import { EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
 
 export default function InvoiceListPage() {
   const { invoices, fetchInvoices, deleteInvoice } = useStore();
@@ -90,7 +90,7 @@ export default function InvoiceListPage() {
         </div>
 
         {loadingData ? (
-          <TableSkeleton rows={4} cols={6} />
+          <TableSkeleton />
         ) : invoices.length === 0 ? (
           <EmptyState
             icon={FileText}

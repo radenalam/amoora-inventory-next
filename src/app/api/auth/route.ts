@@ -4,16 +4,20 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { generateToken, verifyToken, getAuthUser } from '@/lib/auth';
+import { authSchema } from '@/lib/validations';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, name, email, password } = body;
+    const parsed = authSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validasi gagal', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+    }
+
+    const { action, email, password } = parsed.data;
 
     if (action === 'register') {
-      if (!name || !email || !password) {
-        return NextResponse.json({ error: 'Semua field wajib diisi' }, { status: 400 });
-      }
+      const { name } = parsed.data;
       const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
       if (existing.length > 0) {
         return NextResponse.json({ error: 'Email sudah terdaftar' }, { status: 409 });
@@ -25,9 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Login
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email dan password wajib diisi' }, { status: 400 });
-    }
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (!user) {
       return NextResponse.json({ error: 'Email atau password salah' }, { status: 401 });

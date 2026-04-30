@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { clients } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
+import { updateClientSchema } from '@/lib/validations';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authUser = getAuthUser(request.headers);
@@ -21,8 +22,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const body = await request.json();
+  const parsed = updateClientSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validasi gagal', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
 
-  const [updated] = await db.update(clients).set(body).where(eq(clients.id, id)).returning();
+  const { name, email, phone, address, notes } = parsed.data;
+  const [updated] = await db.update(clients).set({
+    name,
+    email,
+    phone,
+    address,
+    notes,
+    updatedAt: new Date(),
+  }).where(eq(clients.id, id)).returning();
   if (!updated) return NextResponse.json({ error: 'Client tidak ditemukan' }, { status: 404 });
 
   return NextResponse.json({ ...updated, createdAt: updated.createdAt?.toISOString(), updatedAt: updated.updatedAt?.toISOString() });

@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { clients } from '@/db/schema';
 import { eq, ilike, sql, desc } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
+import { createClientSchema } from '@/lib/validations';
 
 export async function GET(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
@@ -34,10 +35,12 @@ export async function POST(request: NextRequest) {
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { name, email, phone, address, notes } = body;
+  const parsed = createClientSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validasi gagal', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
 
-  if (!name) return NextResponse.json({ error: 'Nama client wajib diisi' }, { status: 400 });
-
+  const { name, email, phone, address, notes } = parsed.data;
   const [client] = await db.insert(clients).values({ name, email: email || '', phone: phone || '', address: address || '', notes: notes || '' }).returning();
 
   return NextResponse.json({ ...client, createdAt: client.createdAt?.toISOString(), updatedAt: client.updatedAt?.toISOString() }, { status: 201 });

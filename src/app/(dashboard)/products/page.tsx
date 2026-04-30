@@ -5,7 +5,7 @@ import { useStore, Product } from '@/store/useStore';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Edit2, Trash2, X, Loader2, Package, Search } from 'lucide-react';
 import { useToast } from '@/components/ToastProvider';
-import { Skeleton, EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
+import { EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
 
 export default function ProductsPage() {
   const { products, fetchProducts, addProduct, updateProduct, deleteProduct } = useStore();
@@ -92,7 +92,7 @@ export default function ProductsPage() {
         </div>
 
         {loadingData ? (
-          <TableSkeleton rows={4} cols={6} />
+          <TableSkeleton />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Package}

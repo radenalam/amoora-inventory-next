@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
+import { updateProductSchema } from '@/lib/validations';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authUser = getAuthUser(request.headers);
@@ -21,14 +22,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const body = await request.json();
+  const parsed = updateProductSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validasi gagal', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
 
-  const updateData: any = {};
-  if (body.name !== undefined) updateData.name = body.name;
-  if (body.description !== undefined) updateData.description = body.description;
-  if (body.price !== undefined) updateData.price = String(body.price);
-  if (body.unit !== undefined) updateData.unit = body.unit;
-
-  const [updated] = await db.update(products).set({ ...updateData, updatedAt: new Date() }).where(eq(products.id, id)).returning();
+  const { name, description, price, unit } = parsed.data;
+  const [updated] = await db.update(products).set({
+    name,
+    description,
+    price: price !== undefined ? String(price) : undefined,
+    unit,
+    updatedAt: new Date(),
+  }).where(eq(products.id, id)).returning();
   if (!updated) return NextResponse.json({ error: 'Produk tidak ditemukan' }, { status: 404 });
 
   return NextResponse.json({ ...updated, createdAt: updated.createdAt?.toISOString(), updatedAt: updated.updatedAt?.toISOString() });

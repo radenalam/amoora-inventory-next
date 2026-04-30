@@ -4,19 +4,21 @@ export function Skeleton({ className = '' }: { className?: string }) {
   );
 }
 
-export function TableSkeleton({ cols = 5 }: { cols?: number }) {
+export function TableSkeleton() {
   return (
     <div className="p-6 space-y-3">
-      <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {Array.from({ length: cols }).map((_, i) => (
-          <Skeleton key={i} className="h-4" />
-        ))}
+      <div className="flex gap-4">
+        <Skeleton className="h-4 flex-1" />
+        <Skeleton className="h-4 flex-[2]" />
+        <Skeleton className="h-4 flex-1" />
+        <Skeleton className="h-4 w-24" />
       </div>
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-          {Array.from({ length: cols }).map((_, j) => (
-            <Skeleton key={j} className="h-4" />
-          ))}
+        <div key={i} className="flex gap-4">
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 flex-[2]" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 w-24" />
         </div>
       ))}
     </div>

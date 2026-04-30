@@ -44,6 +44,7 @@ export const products = pgTable('products', {
 export const invoices = pgTable('invoices', {
   id: uuid('id').defaultRandom().primaryKey(),
   clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
+  invoiceFor: text('invoice_for').default(''),
   invoiceNo: varchar('invoice_no', { length: 50 }).notNull().unique(),
   date: timestamp('date', { withTimezone: true }).notNull(),
   dueDate: timestamp('due_date', { withTimezone: true }),

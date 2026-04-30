@@ -248,7 +248,7 @@ export const useStore = create<AppState>()((set, get) => ({
       const qs = query.toString();
       const res = await fetch(`/api/invoices${qs ? '?' + qs : ''}`, { headers: h });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'Gagal memuat invoice');
       set({ invoices: data.data || data });
       return data;
     } catch (err: any) {

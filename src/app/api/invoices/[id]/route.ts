@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { invoices, invoiceItems, clients } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
+import { createInvoiceSchema } from '@/lib/validations/invoice';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authUser = getAuthUser(request.headers);
@@ -38,10 +39,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const body = await request.json();
-  const { items, discountType, discountValue, taxType, taxValue, shipping, downPayment, clientId, invoiceFor, ...rest } = body;
+  const parsed = createInvoiceSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validasi gagal', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
+
+  const { items, discountType, discountValue, taxType, taxValue, shipping, downPayment, clientId, invoiceFor, invoiceNo, date, dueDate, poNumber, paymentMethod, notes } = parsed.data;
 
   // Fetch client data if needed
-  let clientName = invoiceFor || rest.invoiceFor;
+  let clientName = invoiceFor || '';
   if (clientId && !invoiceFor) {
     const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
     if (client) clientName = client.name;
@@ -57,25 +63,28 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
   }
 
-  const subtotal = (items || []).reduce((s: number, item: any) => s + (Number(item.qty) * Number(item.unitPrice)), 0);
-  const discountAmount = discountType === 'percent' ? subtotal * (Number(discountValue) / 100) : Number(discountValue || 0);
+  const subtotal = items.reduce((s, item) => s + (item.qty * item.unitPrice), 0);
+  const discountAmount = discountType === 'percent' ? subtotal * ((discountValue ?? 0) / 100) : (discountValue ?? 0);
   const afterDiscount = subtotal - discountAmount;
-  const taxAmount = taxType === 'percent' ? afterDiscount * (Number(taxValue) / 100) : Number(taxValue || 0);
-  const total = afterDiscount + taxAmount + Number(shipping || 0) - Number(downPayment || 0);
+  const taxAmount = taxType === 'percent' ? afterDiscount * ((taxValue ?? 0) / 100) : (taxValue ?? 0);
+  const total = afterDiscount + taxAmount + (shipping ?? 0) - (downPayment ?? 0);
 
   const [updated] = await db.update(invoices).set({
-    ...rest,
+    invoiceNo,
     clientId: finalClientId,
     invoiceFor: clientName,
-    date: new Date(rest.date),
-    dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
+    date: new Date(date),
+    dueDate: dueDate ? new Date(dueDate) : null,
+    poNumber: poNumber ?? '',
+    paymentMethod: paymentMethod ?? 'Bank',
+    notes: notes ?? '',
     subtotal: String(subtotal),
-    discountType: discountType || 'nominal',
-    discountValue: String(discountValue || 0),
-    taxType: taxType || 'nominal',
-    taxValue: String(taxValue || 0),
-    shipping: String(shipping || 0),
-    downPayment: String(downPayment || 0),
+    discountType: discountType ?? 'nominal',
+    discountValue: String(discountValue ?? 0),
+    taxType: taxType ?? 'nominal',
+    taxValue: String(taxValue ?? 0),
+    shipping: String(shipping ?? 0),
+    downPayment: String(downPayment ?? 0),
     total: String(total),
     updatedAt: new Date(),
   }).where(eq(invoices.id, id)).returning();
@@ -84,16 +93,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   // Delete old items and insert new ones
   await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-  if (items && items.length > 0) {
-    await db.insert(invoiceItems).values(items.map((item: any) => ({
-      invoiceId: id,
-      productId: item.productId || null,
-      description: item.description,
-      qty: String(Number(item.qty)),
-      unitPrice: String(Number(item.unitPrice)),
-      total: String(Number(item.qty) * Number(item.unitPrice)),
-    })));
-  }
+  await db.insert(invoiceItems).values(items.map((item) => ({
+    invoiceId: id,
+    productId: item.productId ?? null,
+    description: item.description,
+    qty: String(item.qty),
+    unitPrice: String(item.unitPrice),
+    total: String(item.qty * item.unitPrice),
+  })));
 
   return NextResponse.json({
     ...updated,

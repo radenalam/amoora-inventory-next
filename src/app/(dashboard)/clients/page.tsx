@@ -1,33 +1,33 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useStore } from '@/store/useStore';
+import { useState, useEffect } from 'react';
+import { useStore, Client } from '@/store/useStore';
 import { Plus, Edit2, Trash2, X, Loader2, Users, Search, Mail, Phone, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ToastProvider';
-import { Skeleton, EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
+import { EmptyState, ConfirmDialog, TableSkeleton } from '@/components/UI';
 
 export default function ClientsPage() {
   const { clients, fetchClients, addClient, updateClient, deleteClient } = useStore();
   const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<any>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { fetchClients().finally(() => setLoadingData(false)); }, []);
 
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', address: '', notes: '' });
 
-  const filtered = clients.filter((c: any) =>
+  const filtered = clients.filter((c) =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.phone.includes(searchTerm)
   );
 
-  const handleOpenModal = (client?: any) => {
+  const handleOpenModal = (client?: Client) => {
     if (client) {
       setEditingClient(client);
       setFormData({ name: client.name, email: client.email, phone: client.phone, address: client.address, notes: client.notes });
@@ -90,7 +90,7 @@ export default function ClientsPage() {
         </div>
 
         {loadingData ? (
-          <TableSkeleton rows={4} cols={5} />
+          <TableSkeleton />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Users}
@@ -114,7 +114,7 @@ export default function ClientsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((client: any) => (
+                {filtered.map((client) => (
                   <tr key={client.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{client.name}</div>

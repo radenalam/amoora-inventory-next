@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { products } from '@/db/schema';
 import { eq, ilike, sql, desc } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/auth';
+import { createProductSchema } from '@/lib/validations';
 
 export async function GET(request: NextRequest) {
   const authUser = getAuthUser(request.headers);
@@ -34,10 +35,12 @@ export async function POST(request: NextRequest) {
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { name, description, price, unit } = body;
+  const parsed = createProductSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validasi gagal', details: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
 
-  if (!name) return NextResponse.json({ error: 'Nama produk wajib diisi' }, { status: 400 });
-
+  const { name, description, price, unit } = parsed.data;
   const [product] = await db.insert(products).values({
     name, description: description || '', price: String(price || 0), unit: unit || 'pcs',
   }).returning();
